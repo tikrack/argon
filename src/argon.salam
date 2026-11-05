@@ -1,0 +1,1670 @@
+// lang: en
+package argon
+
+import str
+import conv
+import os
+import term
+
+pub const ArgKindFlag := 0
+pub const ArgKindStr := 1
+pub const ArgKindInt := 2
+pub const ArgKindFloat := 3
+pub const ArgKindBool := 4
+pub const ArgKindCount := 5
+
+pub const ArgColorAuto := 0
+pub const ArgColorAlways := 1
+pub const ArgColorNever := 2
+
+pub const ArgExitOK := 0
+pub const ArgExitUsage := 2
+
+pub struct OptionSpec:
+    pub name: str = ""
+    pub short: str = ""
+    pub help: str = ""
+    pub kind: int = ArgKindFlag
+    pub required: bool = false
+    pub repeatable: bool = false
+    pub negatable: bool = false
+    pub hidden: bool = false
+    pub has_default: bool = false
+    pub default_value: str = ""
+    pub has_min: bool = false
+    pub min_value: f64 = 0.0
+    pub has_max: bool = false
+    pub max_value: f64 = 0.0
+    pub has_min_len: bool = false
+    pub min_len: int = 0
+    pub has_max_len: bool = false
+    pub max_len: int = 0
+    pub allowed: Vector<str> = Vector {}
+    pub func Require():
+        this.required = true
+        this.has_default = false
+    end
+    pub func AllowRepeat(): this.repeatable = true end
+    pub func Negate(): this.negatable = true end
+    pub func Hide(): this.hidden = true end
+    pub func Range(lo: f64, hi: f64):
+        this.has_min = true
+        this.min_value = lo
+        this.has_max = true
+        this.max_value = hi
+    end
+    pub func Min(lo: f64):
+        this.has_min = true
+        this.min_value = lo
+    end
+    pub func Max(hi: f64):
+        this.has_max = true
+        this.max_value = hi
+    end
+    pub func MinLength(n: int):
+        this.has_min_len = true
+        this.min_len = n
+    end
+    pub func MaxLength(n: int):
+        this.has_max_len = true
+        this.max_len = n
+    end
+    pub func OneOf(value: str): this.allowed.push(value) end
+    pub func Free(): this.allowed.free() end
+end
+
+pub struct ArgumentSpec:
+    pub name: str = ""
+    pub help: str = ""
+    pub required: bool = false
+    pub many: bool = false
+    pub min_count: int = 0
+    pub max_count: int = 0
+end
+
+pub struct Command:
+    pub name: str = ""
+    pub help: str = ""
+    pub hidden: bool = false
+    pub def_error: str = ""
+    pub options: Vector<OptionSpec> = Vector {}
+    pub args: Vector<ArgumentSpec> = Vector {}
+    pub func Flag(name: str, short: str, help: str):
+        _command_add_option(this, _flag_spec(name, short, help))
+    end
+    pub func NegatableFlag(name: str, short: str, help: str, default_on: bool):
+        _command_add_option(this, _negatable_spec(name, short, help, default_on))
+    end
+    pub func CountFlag(name: str, short: str, help: str):
+        _command_add_option(this, _count_spec(name, short, help))
+    end
+    pub func StrOption(name: str, short: str, help: str, default_value: str):
+        _command_add_option(this, _str_spec(name, short, help, default_value))
+    end
+    pub func IntOption(name: str, short: str, help: str, default_value: i64):
+        _command_add_option(this, _int_spec(name, short, help, default_value))
+    end
+    pub func FloatOption(name: str, short: str, help: str, default_value: f64):
+        _command_add_option(this, _float_spec(name, short, help, default_value))
+    end
+    pub func BoolOption(name: str, short: str, help: str, default_value: bool):
+        _command_add_option(this, _bool_spec(name, short, help, default_value))
+    end
+    pub func MultiOption(name: str, short: str, help: str):
+        _command_add_option(this, _multi_spec(name, short, help))
+    end
+    pub func AddOption(spec: OptionSpec): _command_add_option(this, spec) end
+    pub func AddArgument(spec: ArgumentSpec): _command_add_argument(this, spec) end
+    pub func Positional(name: str, help: str):
+        _command_add_argument(this, _argument_spec(name, help, true, false, 1, 1))
+    end
+    pub func OptionalPositional(name: str, help: str):
+        _command_add_argument(this, _argument_spec(name, help, false, false, 0, 1))
+    end
+    pub func RestPositional(name: str, help: str, min_count: int):
+        _command_add_argument(this, _argument_spec(name, help, min_count > 0, true, min_count, 0))
+    end
+    pub func Hide(): this.hidden = true end
+    pub func Free():
+        _free_options(this.options)
+        _free_arguments(this.args)
+    end
+end
+
+pub struct Parser:
+    pub prog: str = ""
+    pub desc: str = ""
+    pub version: str = ""
+    pub help_flag: bool = true
+    pub color: int = ArgColorAuto
+    pub allow_extras: bool = false
+    pub def_error: str = ""
+    pub options: Vector<OptionSpec> = Vector {}
+    pub args: Vector<ArgumentSpec> = Vector {}
+    pub commands: Vector<Command> = Vector {}
+    pub func SetVersion(version: str): this.version = version end
+    pub func DisableHelpFlag(): this.help_flag = false end
+    pub func SetColor(mode: int): this.color = mode end
+    pub func AllowExtras(): this.allow_extras = true end
+    pub func Flag(name: str, short: str, help: str):
+        _add_option(this, _flag_spec(name, short, help))
+    end
+    pub func NegatableFlag(name: str, short: str, help: str, default_on: bool):
+        _add_option(this, _negatable_spec(name, short, help, default_on))
+    end
+    pub func CountFlag(name: str, short: str, help: str):
+        _add_option(this, _count_spec(name, short, help))
+    end
+    pub func StrOption(name: str, short: str, help: str, default_value: str):
+        _add_option(this, _str_spec(name, short, help, default_value))
+    end
+    pub func IntOption(name: str, short: str, help: str, default_value: i64):
+        _add_option(this, _int_spec(name, short, help, default_value))
+    end
+    pub func FloatOption(name: str, short: str, help: str, default_value: f64):
+        _add_option(this, _float_spec(name, short, help, default_value))
+    end
+    pub func BoolOption(name: str, short: str, help: str, default_value: bool):
+        _add_option(this, _bool_spec(name, short, help, default_value))
+    end
+    pub func MultiOption(name: str, short: str, help: str):
+        _add_option(this, _multi_spec(name, short, help))
+    end
+    pub func AddOption(spec: OptionSpec): _add_option(this, spec) end
+    pub func AddArgument(spec: ArgumentSpec): _add_argument(this, spec) end
+    pub func Positional(name: str, help: str):
+        _add_argument(this, _argument_spec(name, help, true, false, 1, 1))
+    end
+    pub func OptionalPositional(name: str, help: str):
+        _add_argument(this, _argument_spec(name, help, false, false, 0, 1))
+    end
+    pub func RestPositional(name: str, help: str, min_count: int):
+        _add_argument(this, _argument_spec(name, help, min_count > 0, true, min_count, 0))
+    end
+    pub func AddCommand(cmd: Command):
+        if cmd.name == "":
+            this.def_error = "a command needs a name"
+            ret
+        end
+        if cmd.def_error != "":
+            this.def_error = cmd.def_error
+            ret
+        end
+        if _find_command(this, cmd.name) >= 0:
+            this.def_error = "duplicate command '" + cmd.name + "'"
+            ret
+        end
+        repeat cmd.options.len() in i:
+            if _find_option(this.options, cmd.options.get(i).name) >= 0:
+                this.def_error = "option '--" + cmd.options.get(i).name + "' in command '" + cmd.name + "' duplicates a global option"
+                ret
+            end
+        end
+        this.commands.push(cmd)
+    end
+    pub func Parse(args: Vector<str>): Result:
+        ret _parse_all(this, args)
+    end
+    pub func ParseProcess(): Result:
+        raw := os.Args()
+        mut args := Vector {} as Vector<str>
+        mut i := 1
+        until i < raw.len():
+            args.push(raw.get(i))
+            i += 1
+        end
+        ret _parse_all(this, args)
+    end
+    pub func Help(): str: ret _render_help(this, "", _want_color(this)) end
+    pub func HelpFor(name: str): str:
+        ret _render_help(this, name, _want_color(this))
+    end
+    pub func Usage(): str: ret _render_usage(this, "") end
+    pub func UsageFor(name: str): str:
+        if _find_command(this, name) < 0: ret "" end
+        ret _render_usage(this, name)
+    end
+    pub func VersionLine(): str:
+        if this.version == "": ret this.prog end
+        ret this.prog + " " + this.version
+    end
+    pub func CommandCount(): int: ret this.commands.len() end
+    pub func CommandName(index: int): str:
+        if index < 0 or index >= this.commands.len(): ret "" end
+        ret this.commands.get(index).name
+    end
+    pub func CommandHelp(index: int): str:
+        if index < 0 or index >= this.commands.len(): ret "" end
+        ret this.commands.get(index).help
+    end
+    pub func Completion(shell: str): str: ret _completion(this, shell) end
+    pub func Free():
+        _free_options(this.options)
+        _free_arguments(this.args)
+        repeat this.commands.len() in i:
+            this.commands.get(i).Free()
+        end
+        this.commands.free()
+    end
+end
+
+pub struct Value:
+    pub name: str = ""
+    pub kind: int = ArgKindFlag
+    pub count: int = 0
+    pub values: Vector<str> = Vector {}
+    pub is_argument: bool = false
+    pub func Free(): this.values.free() end
+end
+
+pub struct Result:
+    pub prog: str = ""
+    pub ok: bool = false
+    pub help_wanted: bool = false
+    pub version_wanted: bool = false
+    pub command: str = ""
+    pub err_kind: str = ""
+    pub err_message: str = ""
+    pub err_option: str = ""
+    pub values: Vector<Value> = Vector {}
+    pub extras: Vector<str> = Vector {}
+    pub func Ok(): bool: ret this.ok end
+    pub func HelpWanted(): bool: ret this.help_wanted end
+    pub func VersionWanted(): bool: ret this.version_wanted end
+    pub func Command(): str: ret this.command end
+    pub func IsSet(name: str): bool:
+        i := _find_value(this, name)
+        if i < 0: ret false end
+        ret this.values.get(i).count > 0
+    end
+    pub func Num(name: str): int:
+        i := _find_value(this, name)
+        if i < 0: ret 0 end
+        ret this.values.get(i).count
+    end
+    pub func Str(name: str): str:
+        i := _find_value(this, name)
+        if i < 0: ret "" end
+        v := this.values.get(i)
+        if v.values.len() == 0: ret "" end
+        ret v.values.get(0)
+    end
+    pub func Int(name: str): i64:
+        i := _find_value(this, name)
+        if i < 0: ret 0 end
+        v := this.values.get(i)
+        if v.kind == ArgKindCount: ret v.count end
+        if v.values.len() == 0: ret 0 end
+        mut n := 0 as i64
+        if not _parse_int(v.values.get(0), n): ret 0 end
+        ret n
+    end
+    pub func Float(name: str): f64:
+        i := _find_value(this, name)
+        if i < 0: ret 0.0 end
+        v := this.values.get(i)
+        if v.values.len() == 0: ret 0.0 end
+        mut x := 0.0
+        if not _parse_float(v.values.get(0), x): ret 0.0 end
+        ret x
+    end
+    pub func Bool(name: str): bool:
+        i := _find_value(this, name)
+        if i < 0: ret false end
+        v := this.values.get(i)
+        if v.kind == ArgKindCount: ret v.count > 0 end
+        if v.values.len() == 0: ret false end
+        mut b := false
+        if not _parse_bool(v.values.get(0), b): ret false end
+        ret b
+    end
+    pub func ValueCount(name: str): int:
+        i := _find_value(this, name)
+        if i < 0: ret 0 end
+        ret this.values.get(i).values.len()
+    end
+    pub func ValueAt(name: str, index: int): str:
+        i := _find_value(this, name)
+        if i < 0: ret "" end
+        v := this.values.get(i)
+        if index < 0 or index >= v.values.len(): ret "" end
+        ret v.values.get(index)
+    end
+    pub func Strs(name: str): Vector<str>:
+        mut out := Vector {} as Vector<str>
+        i := _find_value(this, name)
+        if i < 0: ret out end
+        v := this.values.get(i)
+        repeat v.values.len() in k:
+            out.push(v.values.get(k))
+        end
+        ret out
+    end
+    pub func Ints(name: str): Vector<i64>:
+        mut out := Vector {} as Vector<i64>
+        i := _find_value(this, name)
+        if i < 0: ret out end
+        v := this.values.get(i)
+        repeat v.values.len() in k:
+            mut n := 0 as i64
+            if _parse_int(v.values.get(k), n): out.push(n) end
+        end
+        ret out
+    end
+    pub func Floats(name: str): Vector<f64>:
+        mut out := Vector {} as Vector<f64>
+        i := _find_value(this, name)
+        if i < 0: ret out end
+        v := this.values.get(i)
+        repeat v.values.len() in k:
+            mut x := 0.0
+            if _parse_float(v.values.get(k), x): out.push(x) end
+        end
+        ret out
+    end
+    pub func Bools(name: str): Vector<bool>:
+        mut out := Vector {} as Vector<bool>
+        i := _find_value(this, name)
+        if i < 0: ret out end
+        v := this.values.get(i)
+        repeat v.values.len() in k:
+            mut b := false
+            if _parse_bool(v.values.get(k), b): out.push(b) end
+        end
+        ret out
+    end
+    pub func Extras(): Vector<str>:
+        mut out := Vector {} as Vector<str>
+        repeat this.extras.len() in i:
+            out.push(this.extras.get(i))
+        end
+        ret out
+    end
+    pub func ErrorKind(): str: ret this.err_kind end
+    pub func ErrorMessage(): str: ret this.err_message end
+    pub func Error(): str:
+        if this.err_message == "": ret "" end
+        mut out := "error: " + this.err_message
+        if this.prog != "":
+            out = out + "\ntry '" + this.prog + " --help' for more information."
+        end
+        ret out
+    end
+    pub func ExitCode(): int:
+        if this.ok or this.help_wanted or this.version_wanted: ret ArgExitOK end
+        ret ArgExitUsage
+    end
+    pub func Free():
+        repeat this.values.len() in i:
+            this.values.get(i).Free()
+        end
+        this.values.free()
+        this.extras.free()
+    end
+end
+
+struct ParseState:
+    pub args: Vector<str> = Vector {}
+    pub res: Result = Result {}
+    pub i: int = 0
+    pub only_pos: bool = false
+    pub cmd: str = ""
+    pub arg_index: int = 0
+    pub arg_count: int = 0
+end
+
+func _flag_spec(name: str, short: str, help: str): OptionSpec:
+    ret OptionSpec { name = name, short = short, help = help, kind = ArgKindFlag }
+end
+
+func _negatable_spec(name: str, short: str, help: str, default_on: bool): OptionSpec:
+    ret OptionSpec {
+        name = name,
+        short = short,
+        help = help,
+        kind = ArgKindBool,
+        negatable = true,
+        has_default = true,
+        default_value = default_on ? "true" : "false"
+    }
+end
+
+func _count_spec(name: str, short: str, help: str): OptionSpec:
+    ret OptionSpec {
+        name = name,
+        short = short,
+        help = help,
+        kind = ArgKindCount,
+        repeatable = true,
+        has_default = true,
+        default_value = "0"
+    }
+end
+
+func _str_spec(name: str, short: str, help: str, default_value: str): OptionSpec:
+    ret OptionSpec {
+        name = name,
+        short = short,
+        help = help,
+        kind = ArgKindStr,
+        has_default = true,
+        default_value = default_value
+    }
+end
+
+func _int_spec(name: str, short: str, help: str, default_value: i64): OptionSpec:
+    ret OptionSpec {
+        name = name,
+        short = short,
+        help = help,
+        kind = ArgKindInt,
+        has_default = true,
+        default_value = conv.FormatInt(default_value)
+    }
+end
+
+func _float_spec(name: str, short: str, help: str, default_value: f64): OptionSpec:
+    ret OptionSpec {
+        name = name,
+        short = short,
+        help = help,
+        kind = ArgKindFloat,
+        has_default = true,
+        default_value = conv.FormatFloat(default_value)
+    }
+end
+
+func _bool_spec(name: str, short: str, help: str, default_value: bool): OptionSpec:
+    ret OptionSpec {
+        name = name,
+        short = short,
+        help = help,
+        kind = ArgKindBool,
+        negatable = true,
+        has_default = true,
+        default_value = default_value ? "true" : "false"
+    }
+end
+
+func _multi_spec(name: str, short: str, help: str): OptionSpec:
+    ret OptionSpec { name = name, short = short, help = help, kind = ArgKindStr, repeatable = true }
+end
+
+func _argument_spec(name: str, help: str, required: bool, many: bool, min_count: int, max_count: int): ArgumentSpec:
+    ret ArgumentSpec {
+        name = name,
+        help = help,
+        required = required,
+        many = many,
+        min_count = min_count,
+        max_count = max_count
+    }
+end
+
+func _free_options(options &: Vector<OptionSpec>):
+    repeat options.len() in i:
+        options.get(i).Free()
+    end
+    options.free()
+end
+
+func _free_arguments(args &: Vector<ArgumentSpec>):
+    args.free()
+end
+
+func _valid_kind(kind: int): bool:
+    ret kind >= ArgKindFlag and kind <= ArgKindCount
+end
+
+func _add_option(p &: Parser, spec: OptionSpec):
+    if spec.name == "":
+        p.def_error = "an option needs a name"
+        ret
+    end
+    if spec.name.substr(0, 1) == "-" or spec.name.find("=") >= 0:
+        p.def_error = "invalid option name '" + spec.name + "'"
+        ret
+    end
+    if spec.short.len() > 1:
+        p.def_error = "the short name of '" + spec.name + "' must be one character"
+        ret
+    end
+    if spec.short == "-" or spec.short == "=":
+        p.def_error = "invalid short name for option '" + spec.name + "'"
+        ret
+    end
+    if not _valid_kind(spec.kind):
+        p.def_error = "invalid kind for option '" + spec.name + "'"
+        ret
+    end
+    if _find_option(p.options, spec.name) >= 0:
+        p.def_error = "duplicate option '--" + spec.name + "'"
+        ret
+    end
+    if spec.short != "" and _find_short(p.options, spec.short) >= 0:
+        p.def_error = "duplicate short option '-" + spec.short + "'"
+        ret
+    end
+    p.options.push(spec)
+end
+
+func _add_argument(p &: Parser, spec: ArgumentSpec):
+    if spec.name == "":
+        p.def_error = "an argument needs a name"
+        ret
+    end
+    if _find_argument(p.args, spec.name) >= 0:
+        p.def_error = "duplicate argument '<" + spec.name + ">'"
+        ret
+    end
+    if p.args.len() > 0 and p.args.get(p.args.len() - 1).many:
+        p.def_error = "argument '<" + spec.name + ">' cannot follow a rest argument"
+        ret
+    end
+    if spec.many and spec.max_count > 0 and spec.max_count < spec.min_count:
+        p.def_error = "invalid maximum count for '<" + spec.name + ">'"
+        ret
+    end
+    p.args.push(spec)
+end
+
+func _command_add_option(c &: Command, spec: OptionSpec):
+    if spec.name == "":
+        c.def_error = "an option needs a name"
+        ret
+    end
+    if spec.name.substr(0, 1) == "-" or spec.name.find("=") >= 0:
+        c.def_error = "invalid option name '" + spec.name + "'"
+        ret
+    end
+    if spec.short.len() > 1:
+        c.def_error = "the short name of '" + spec.name + "' must be one character"
+        ret
+    end
+    if spec.short == "-" or spec.short == "=":
+        c.def_error = "invalid short name for option '" + spec.name + "'"
+        ret
+    end
+    if not _valid_kind(spec.kind):
+        c.def_error = "invalid kind for option '" + spec.name + "'"
+        ret
+    end
+    if _find_option(c.options, spec.name) >= 0:
+        c.def_error = "duplicate option '--" + spec.name + "'"
+        ret
+    end
+    if spec.short != "" and _find_short(c.options, spec.short) >= 0:
+        c.def_error = "duplicate short option '-" + spec.short + "'"
+        ret
+    end
+    c.options.push(spec)
+end
+
+func _command_add_argument(c &: Command, spec: ArgumentSpec):
+    if spec.name == "":
+        c.def_error = "an argument needs a name"
+        ret
+    end
+    if _find_argument(c.args, spec.name) >= 0:
+        c.def_error = "duplicate argument '<" + spec.name + ">'"
+        ret
+    end
+    if c.args.len() > 0 and c.args.get(c.args.len() - 1).many:
+        c.def_error = "argument '<" + spec.name + ">' cannot follow a rest argument"
+        ret
+    end
+    c.args.push(spec)
+end
+
+func _find_option(options: Vector<OptionSpec>, name: str): int:
+    repeat options.len() in i:
+        if options.get(i).name == name: ret i end
+    end
+    ret 0 - 1
+end
+
+func _find_argument(args: Vector<ArgumentSpec>, name: str): int:
+    repeat args.len() in i:
+        if args.get(i).name == name: ret i end
+    end
+    ret 0 - 1
+end
+
+func _find_short(options: Vector<OptionSpec>, name: str): int:
+    if name == "": ret 0 - 1 end
+    repeat options.len() in i:
+        if options.get(i).short == name: ret i end
+    end
+    ret 0 - 1
+end
+
+func _find_command(p &: Parser, name: str): int:
+    repeat p.commands.len() in i:
+        if p.commands.get(i).name == name: ret i end
+    end
+    ret 0 - 1
+end
+
+func _command_options(p &: Parser, cmd: str): Vector<OptionSpec>:
+    i := _find_command(p, cmd)
+    if i < 0: ret p.options end
+    ret p.commands.get(i).options
+end
+
+func _command_args(p &: Parser, cmd: str): Vector<ArgumentSpec>:
+    i := _find_command(p, cmd)
+    if i < 0: ret p.args end
+    ret p.commands.get(i).args
+end
+
+func _lookup_option(p &: Parser, cmd: str, name: str, out &: OptionSpec): bool:
+    if cmd != "":
+        ci := _find_command(p, cmd)
+        if ci >= 0:
+            oi := _find_option(p.commands.get(ci).options, name)
+            if oi >= 0:
+                out = p.commands.get(ci).options.get(oi)
+                ret true
+            end
+        end
+    end
+    oi := _find_option(p.options, name)
+    if oi >= 0:
+        out = p.options.get(oi)
+        ret true
+    end
+    ret false
+end
+
+func _lookup_short(p &: Parser, cmd: str, name: str, out &: OptionSpec): bool:
+    if cmd != "":
+        ci := _find_command(p, cmd)
+        if ci >= 0:
+            oi := _find_short(p.commands.get(ci).options, name)
+            if oi >= 0:
+                out = p.commands.get(ci).options.get(oi)
+                ret true
+            end
+        end
+    end
+    oi := _find_short(p.options, name)
+    if oi >= 0:
+        out = p.options.get(oi)
+        ret true
+    end
+    ret false
+end
+
+func _find_value(res &: Result, name: str): int:
+    repeat res.values.len() in i:
+        if res.values.get(i).name == name: ret i end
+    end
+    ret 0 - 1
+end
+
+func _ensure_value(res &: Result, name: str, kind: int, is_argument: bool): int:
+    i := _find_value(res, name)
+    if i >= 0: ret i end
+    mut v := Value {}
+    v.name = name
+    v.kind = kind
+    v.is_argument = is_argument
+    res.values.push(v)
+    ret res.values.len() - 1
+end
+
+func _add_default(res &: Result, spec: OptionSpec):
+    i := _ensure_value(res, spec.name, spec.kind, false)
+    if spec.has_default:
+        v := res.values.get(i)
+        v.values.push(spec.default_value)
+        res.values.set(i, v)
+    end
+end
+
+func _set_option(res &: Result, spec: OptionSpec, text: str):
+    i := _ensure_value(res, spec.name, spec.kind, false)
+    v := res.values.get(i)
+    if v.count == 0 and v.values.len() > 0:
+        v.values.clear()
+    end
+    v.count += 1
+    v.values.push(text)
+    res.values.set(i, v)
+end
+
+func _add_positional_value(res &: Result, spec: ArgumentSpec, text: str):
+    i := _ensure_value(res, spec.name, ArgKindStr, true)
+    v := res.values.get(i)
+    v.count += 1
+    v.values.push(text)
+    res.values.set(i, v)
+end
+
+func _init_result(p &: Parser, cmd: str): Result:
+    mut res := Result {}
+    res.prog = p.prog
+    res.command = cmd
+    repeat p.options.len() in i:
+        _add_default(res, p.options.get(i))
+    end
+    if cmd != "":
+        ci := _find_command(p, cmd)
+        if ci >= 0:
+            repeat p.commands.get(ci).options.len() in j:
+                spec := p.commands.get(ci).options.get(j)
+                if _find_value(res, spec.name) < 0:
+                    _add_default(res, spec)
+                end
+            end
+        end
+    end
+    ret res
+end
+
+func _fail(res &: Result, kind: str, message: str):
+    res.ok = false
+    res.err_kind = kind
+    res.err_message = message
+    res.err_option = ""
+end
+
+func _fail_option(res &: Result, kind: str, message: str, option: str):
+    res.ok = false
+    res.err_kind = kind
+    res.err_message = message
+    res.err_option = option
+end
+
+func _kind_name(kind: int): str:
+    if kind == ArgKindStr: ret "string" end
+    if kind == ArgKindInt: ret "int" end
+    if kind == ArgKindFloat: ret "float" end
+    if kind == ArgKindBool: ret "bool" end
+    if kind == ArgKindCount: ret "count" end
+    ret "flag"
+end
+
+func _is_digit(text: str): bool:
+    ret text.len() == 1 and str.IsAsciiDigit(char_code(text))
+end
+
+func _parse_int(text: str, out &: i64): bool:
+    t := text.trim()
+    n := t.len()
+    if n == 0: ret false end
+    mut i := 0
+    mut neg := false
+    first := t.substr(0, 1)
+    if first == "-" or first == "+":
+        neg = first == "-"
+        i = 1
+    end
+    if i >= n: ret false end
+    mut acc := 0 as i64
+    mut digits := 0
+    until i < n:
+        c := t.substr(i, 1)
+        if not _is_digit(c): ret false end
+        d := (char_code(c) - 48) as i64
+        if acc > 922337203685477580:
+            ret false
+        end
+        if acc == 922337203685477580:
+            if neg and d == 8:
+                if i + 1 < n: ret false end
+                out = (0 - 9223372036854775807) - 1
+                ret true
+            end
+            if d > 7: ret false end
+        end
+        acc = acc * 10 + d
+        digits += 1
+        i += 1
+    end
+    if digits == 0: ret false end
+    if neg: acc = 0 - acc end
+    out = acc
+    ret true
+end
+
+func _parse_float(text: str, out &: f64): bool:
+    t := text.trim()
+    n := t.len()
+    if n == 0: ret false end
+    mut i := 0
+    mut neg := false
+    first := t.substr(0, 1)
+    if first == "-" or first == "+":
+        neg = first == "-"
+        i = 1
+    end
+    if i >= n: ret false end
+    mut value := 0.0
+    mut digits := 0
+    until i < n:
+        c := t.substr(i, 1)
+        if not _is_digit(c): break end
+        value = value * 10.0 + ((char_code(c) - 48) as f64)
+        digits += 1
+        i += 1
+    end
+    if i < n and t.substr(i, 1) == ".":
+        i += 1
+        mut scale := 0.1
+        until i < n:
+            c := t.substr(i, 1)
+            if not _is_digit(c): break end
+            value = value + ((char_code(c) - 48) as f64) * scale
+            scale = scale / 10.0
+            digits += 1
+            i += 1
+        end
+    end
+    if digits == 0: ret false end
+    if i < n:
+        e := t.substr(i, 1)
+        if e != "e" and e != "E": ret false end
+        i += 1
+        mut eneg := false
+        if i < n:
+            sign := t.substr(i, 1)
+            if sign == "-" or sign == "+":
+                eneg = sign == "-"
+                i += 1
+            end
+        end
+        if i >= n: ret false end
+        mut exp := 0
+        mut edigits := 0
+        until i < n:
+            c := t.substr(i, 1)
+            if not _is_digit(c): ret false end
+            exp = exp * 10 + (char_code(c) - 48)
+            if exp > 400: ret false end
+            edigits += 1
+            i += 1
+        end
+        if edigits == 0: ret false end
+        if eneg: exp = 0 - exp end
+        if exp > 308: ret false end
+        mut k := 0
+        if exp > 0:
+            until k < exp:
+                value = value * 10.0
+                k += 1
+            end
+        else:
+            until k < (0 - exp):
+                value = value / 10.0
+                k += 1
+            end
+        end
+    end
+    if i != n: ret false end
+    if neg: value = 0.0 - value end
+    out = value
+    ret true
+end
+
+func _parse_bool(text: str, out &: bool): bool:
+    t := text.trim().lower()
+    if t == "true" or t == "1" or t == "yes" or t == "on":
+        out = true
+        ret true
+    end
+    if t == "false" or t == "0" or t == "no" or t == "off":
+        out = false
+        ret true
+    end
+    ret false
+end
+
+func _is_option_token(text: str): bool:
+    ret text.len() > 1 and text.substr(0, 1) == "-"
+end
+
+func _value_allowed_as_next(text: str, kind: int): bool:
+    if not _is_option_token(text): ret true end
+    if kind == ArgKindInt or kind == ArgKindFloat:
+        mut n := 0 as i64
+        if _parse_int(text, n): ret true end
+        mut x := 0.0
+        if _parse_float(text, x): ret true end
+    end
+    ret text == "-"
+end
+
+func _validate_option(res &: Result, spec: OptionSpec):
+    i := _find_value(res, spec.name)
+    if spec.required and (i < 0 or res.values.get(i).count == 0):
+        _fail_option(res, "missing-required", "missing required option '--" + spec.name + "'", spec.name)
+        ret
+    end
+    if i < 0: ret end
+    v := res.values.get(i)
+    if spec.repeatable == false and spec.kind != ArgKindFlag and spec.kind != ArgKindBool and spec.kind != ArgKindCount and v.count > 1:
+        _fail_option(res, "duplicate-option", "option '--" + spec.name + "' can be given only once", spec.name)
+        ret
+    end
+    if v.count == 0: ret end
+    if spec.kind == ArgKindCount:
+        ret
+    end
+    mut at := 0
+    until at < v.values.len():
+        text := v.values.get(at)
+        if spec.kind == ArgKindInt:
+            mut n := 0 as i64
+            if not _parse_int(text, n):
+                _fail_option(res, "invalid-value", "invalid int value for '--" + spec.name + "': '" + text + "'", spec.name)
+                ret
+            end
+            if spec.has_min and (n as f64) < spec.min_value:
+                _fail_option(res, "out-of-range", "value '" + text + "' for '--" + spec.name + "' is below the minimum " + conv.FormatFloat(spec.min_value), spec.name)
+                ret
+            end
+            if spec.has_max and (n as f64) > spec.max_value:
+                _fail_option(res, "out-of-range", "value '" + text + "' for '--" + spec.name + "' is above the maximum " + conv.FormatFloat(spec.max_value), spec.name)
+                ret
+            end
+        else spec.kind == ArgKindFloat:
+            mut x := 0.0
+            if not _parse_float(text, x):
+                _fail_option(res, "invalid-value", "invalid float value for '--" + spec.name + "': '" + text + "'", spec.name)
+                ret
+            end
+            if spec.has_min and x < spec.min_value:
+                _fail_option(res, "out-of-range", "value '" + text + "' for '--" + spec.name + "' is below the minimum " + conv.FormatFloat(spec.min_value), spec.name)
+                ret
+            end
+            if spec.has_max and x > spec.max_value:
+                _fail_option(res, "out-of-range", "value '" + text + "' for '--" + spec.name + "' is above the maximum " + conv.FormatFloat(spec.max_value), spec.name)
+                ret
+            end
+        else spec.kind == ArgKindBool:
+            mut b := false
+            if not _parse_bool(text, b):
+                _fail_option(res, "invalid-value", "invalid bool value for '--" + spec.name + "': '" + text + "'", spec.name)
+                ret
+            end
+        else:
+            if spec.has_min_len and text.char_count() < spec.min_len:
+                _fail_option(res, "too-short", "value for '--" + spec.name + "' must have at least " + conv.FormatInt(spec.min_len as i64) + " characters", spec.name)
+                ret
+            end
+            if spec.has_max_len and text.char_count() > spec.max_len:
+                _fail_option(res, "too-long", "value for '--" + spec.name + "' must have at most " + conv.FormatInt(spec.max_len as i64) + " characters", spec.name)
+                ret
+            end
+            if spec.allowed.len() > 0:
+                mut ok := false
+                repeat spec.allowed.len() in k:
+                    if spec.allowed.get(k) == text:
+                        ok = true
+                    end
+                end
+                if not ok:
+                    _fail_option(res, "not-allowed", "invalid value '" + text + "' for '--" + spec.name + "' (allowed: " + str.Join(spec.allowed, ", ") + ")", spec.name)
+                    ret
+                end
+            end
+        end
+        at += 1
+    end
+end
+
+func _validate_argument(res &: Result, spec: ArgumentSpec):
+    i := _find_value(res, spec.name)
+    mut count := 0
+    if i >= 0: count = res.values.get(i).count end
+    if count < spec.min_count:
+        if spec.many:
+            mut unit := "values"
+            if spec.min_count == 1: unit = "value" end
+            _fail_option(res, "missing-argument", "argument '<" + spec.name + ">' needs at least " + conv.FormatInt(spec.min_count as i64) + " " + unit, spec.name)
+        else:
+            _fail_option(res, "missing-argument", "missing required argument '<" + spec.name + ">'", spec.name)
+        end
+        ret
+    end
+    if spec.max_count > 0 and count > spec.max_count:
+        _fail_option(res, "too-many-arguments", "argument '<" + spec.name + ">' accepts at most " + conv.FormatInt(spec.max_count as i64) + " values", spec.name)
+    end
+end
+
+func _validate(p &: Parser, res &: Result, cmd: str):
+    repeat p.options.len() in i:
+        spec := p.options.get(i)
+        mut skip := false
+        if cmd != "":
+            ci := _find_command(p, cmd)
+            if ci >= 0 and _find_option(p.commands.get(ci).options, spec.name) >= 0:
+                skip = true
+            end
+        end
+        if not skip:
+            _validate_option(res, spec)
+            if not res.ok: ret end
+        end
+    end
+    if cmd != "":
+        ci := _find_command(p, cmd)
+        if ci >= 0:
+            repeat p.commands.get(ci).options.len() in j:
+                _validate_option(res, p.commands.get(ci).options.get(j))
+                if not res.ok: ret end
+            end
+        end
+    end
+    repeat _command_args(p, cmd).len() in k:
+        _validate_argument(res, _command_args(p, cmd).get(k))
+        if not res.ok: ret end
+    end
+end
+
+func _set_long_value(st &: ParseState, spec: OptionSpec, text: str):
+    mut b := false
+    if not _parse_bool(text, b):
+        _fail_option(st.res, "invalid-value", "invalid bool value for '--" + spec.name + "': '" + text + "'", spec.name)
+        ret
+    end
+    _set_option(st.res, spec, b ? "true" : "false")
+end
+
+func _take_value(st &: ParseState, spec: OptionSpec, label: str):
+    if st.i + 1 >= st.args.len():
+        _fail_option(st.res, "missing-value", "option '" + label + "' needs a value", spec.name)
+        ret
+    end
+    next := st.args.get(st.i + 1)
+    if not _value_allowed_as_next(next, spec.kind):
+        _fail_option(st.res, "missing-value", "option '" + label + "' needs a value (use " + label + "=VALUE for a value that starts with '-')", spec.name)
+        ret
+    end
+    _set_option(st.res, spec, next)
+    st.i += 1
+end
+
+func _handle_long(p &: Parser, st &: ParseState):
+    arg := st.args.get(st.i)
+    body := arg.substr(2, arg.len() - 2)
+    mut name := body
+    mut has_inline := false
+    mut inline_value := ""
+    eq_at := body.find("=")
+    if eq_at >= 0:
+        name = body.substr(0, eq_at)
+        inline_value = body.substr(eq_at + 1, body.len() - eq_at - 1)
+        has_inline = true
+    end
+    if name == "":
+        _fail(st.res, "invalid-option", "invalid option '" + arg + "'")
+        ret
+    end
+    if name == "help" and p.help_flag:
+        if has_inline:
+            _fail(st.res, "unexpected-value", "option '--help' does not take a value")
+            ret
+        end
+        st.res.help_wanted = true
+        st.res.ok = true
+        ret
+    end
+    if name == "version" and p.version != "":
+        if has_inline:
+            _fail(st.res, "unexpected-value", "option '--version' does not take a value")
+            ret
+        end
+        st.res.version_wanted = true
+        st.res.ok = true
+        ret
+    end
+    mut spec := OptionSpec {}
+    if _lookup_option(p, st.cmd, name, spec): 
+        if spec.kind == ArgKindFlag or spec.kind == ArgKindBool:
+            if has_inline:
+                _set_long_value(st, spec, inline_value)
+            else:
+                _set_option(st.res, spec, "true")
+            end
+            ret
+        end
+        if spec.kind == ArgKindCount:
+            if has_inline:
+                _fail_option(st.res, "unexpected-value", "option '--" + spec.name + "' does not take a value", spec.name)
+                ret
+            end
+            _set_option(st.res, spec, "true")
+            ret
+        end
+        if has_inline:
+            _set_option(st.res, spec, inline_value)
+            ret
+        end
+        _take_value(st, spec, "--" + spec.name)
+        ret
+    end
+    if str.StartsWith(name, "no-"):
+        base := name.substr(3, name.len() - 3)
+        if _lookup_option(p, st.cmd, base, spec):
+            if spec.negatable:
+                if has_inline:
+                    _fail_option(st.res, "unexpected-value", "option '--" + name + "' does not take a value", base)
+                    ret
+                end
+                _set_option(st.res, spec, "false")
+                ret
+            end
+        end
+    end
+    _fail_option(st.res, "unknown-option", "unknown option '--" + name + "'", name)
+end
+
+func _handle_short(p &: Parser, st &: ParseState):
+    arg := st.args.get(st.i)
+    body := arg.substr(1, arg.len() - 1)
+    mut at := 0
+    until at < body.len():
+        ch := body.substr(at, 1)
+        if ch == "h" and p.help_flag:
+            st.res.help_wanted = true
+            st.res.ok = true
+            ret
+        end
+        mut spec := OptionSpec {}
+        if not _lookup_short(p, st.cmd, ch, spec):
+            if arg.len() == 2:
+                _fail_option(st.res, "unknown-option", "unknown option '-" + ch + "'", ch)
+            else:
+                _fail_option(st.res, "unknown-option", "unknown option '-" + ch + "' in '" + arg + "'", ch)
+            end
+            ret
+        end
+        if spec.kind == ArgKindFlag or spec.kind == ArgKindBool or spec.kind == ArgKindCount:
+            _set_option(st.res, spec, "true")
+            at += 1
+        else:
+            mut rest := body.substr(at + 1, body.len() - at - 1)
+            if rest.len() > 0:
+                if rest.substr(0, 1) == "=":
+                    rest = rest.substr(1, rest.len() - 1)
+                end
+                _set_option(st.res, spec, rest)
+                ret
+            end
+            _take_value(st, spec, "-" + ch)
+            ret
+        end
+    end
+end
+
+func _handle_bare(p &: Parser, st &: ParseState):
+    text := st.args.get(st.i)
+    if st.cmd == "" and p.commands.len() > 0:
+        ci := _find_command(p, text)
+        if ci >= 0:
+            st.cmd = text
+            st.res.command = text
+            st.arg_index = 0
+            st.arg_count = 0
+            repeat p.commands.get(ci).options.len() in j:
+                spec := p.commands.get(ci).options.get(j)
+                if _find_value(st.res, spec.name) < 0:
+                    _add_default(st.res, spec)
+                end
+            end
+            ret
+        end
+        if p.args.len() == 0:
+            if p.allow_extras:
+                st.res.extras.push(text)
+                ret
+            end
+            _fail(st.res, "unknown-command", "unknown command '" + text + "'")
+            ret
+        end
+    end
+    args := _command_args(p, st.cmd)
+    if st.arg_index >= args.len():
+        if p.allow_extras:
+            st.res.extras.push(text)
+            ret
+        end
+        _fail(st.res, "unexpected-argument", "unexpected argument '" + text + "'")
+        ret
+    end
+    spec := args.get(st.arg_index)
+    _add_positional_value(st.res, spec, text)
+    st.arg_count += 1
+    if spec.many == false:
+        st.arg_index += 1
+        st.arg_count = 0
+    else:
+        if spec.max_count > 0 and st.arg_count >= spec.max_count:
+            st.arg_index += 1
+            st.arg_count = 0
+        end
+    end
+end
+
+func _parse_loop(p &: Parser, st &: ParseState):
+    until st.i < st.args.len():
+        arg := st.args.get(st.i)
+        if st.only_pos:
+            _handle_bare(p, st)
+        else:
+            if arg == "--":
+                st.only_pos = true
+            else:
+                if str.StartsWith(arg, "--"):
+                    _handle_long(p, st)
+                else:
+                    if _is_option_token(arg):
+                        _handle_short(p, st)
+                    else:
+                        _handle_bare(p, st)
+                    end
+                end
+            end
+        end
+        if not st.res.ok and st.res.help_wanted == false and st.res.version_wanted == false:
+            ret
+        end
+        if st.res.help_wanted or st.res.version_wanted:
+            ret
+        end
+        st.i += 1
+    end
+end
+
+func _parse_all(p &: Parser, args: Vector<str>): Result:
+    mut res := Result {}
+    res.prog = p.prog
+    if p.def_error != "":
+        _fail(res, "definition", p.def_error)
+        ret res
+    end
+    res = _init_result(p, "")
+    mut st := ParseState { args = args }
+    st.res = res
+    st.res.ok = true
+    _parse_loop(p, st)
+    if st.res.help_wanted or st.res.version_wanted:
+        st.res.ok = true
+        ret st.res
+    end
+    if not st.res.ok:
+        ret st.res
+    end
+    _validate(p, st.res, st.cmd)
+    ret st.res
+end
+
+func _opt_label(spec: OptionSpec): str:
+    mut out := "    "
+    if spec.short != "":
+        out = "-" + spec.short + ", "
+    end
+    if spec.negatable:
+        out = out + "--[no-]" + spec.name
+    else:
+        out = out + "--" + spec.name
+    end
+    if spec.kind == ArgKindStr or spec.kind == ArgKindInt or spec.kind == ArgKindFloat or spec.kind == ArgKindBool:
+        out = out + " <" + _kind_name(spec.kind) + ">"
+        if spec.repeatable: out = out + "..." end
+    end
+    ret out
+end
+
+func _arg_label(spec: ArgumentSpec): str:
+    mut out := "<" + spec.name + ">"
+    if spec.required == false:
+        out = "[" + spec.name + "]"
+    end
+    if spec.many:
+        if spec.required:
+            out = "<" + spec.name + "...>"
+        else:
+            out = "[" + spec.name + "...]"
+        end
+    end
+    ret out
+end
+
+func _arg_help(spec: ArgumentSpec): str:
+    if spec.many:
+        if spec.min_count > 0:
+            ret spec.help + " (one or more)"
+        end
+        ret spec.help + " (zero or more)"
+    end
+    ret spec.help
+end
+
+func _pad(text: str, width: int): str:
+    n := width - text.len()
+    if n <= 0: ret text end
+    ret text + str.Repeat(" ", n)
+end
+
+func _color_on(code: str, text: str, enabled: bool): str:
+    if not enabled: ret text end
+    ret code + text + "\x1b[0m"
+end
+
+func _usage_line(p &: Parser, cmd: str): str:
+    mut out := p.prog
+    if cmd == "":
+        out = out + " [options]"
+        if p.commands.len() > 0:
+            out = out + " <command>"
+        else:
+            repeat p.args.len() in i:
+                out = out + " " + _arg_label(p.args.get(i))
+            end
+        end
+    else:
+        out = out + " " + cmd + " [options]"
+        repeat _command_args(p, cmd).len() in i:
+            out = out + " " + _arg_label(_command_args(p, cmd).get(i))
+        end
+    end
+    ret out
+end
+
+func _root_args_line(p &: Parser): str:
+    mut out := p.prog + " [options]"
+    repeat p.args.len() in i:
+        out = out + " " + _arg_label(p.args.get(i))
+    end
+    ret out
+end
+
+func _render_usage(p &: Parser, cmd: str): str:
+    mut out := "Usage:\n  " + _usage_line(p, cmd) + "\n"
+    if cmd == "" and p.commands.len() > 0 and p.args.len() > 0:
+        out = out + "  " + _root_args_line(p) + "\n"
+    end
+    ret out
+end
+
+func _render_help(p &: Parser, cmd: str, color: bool): str:
+    ci := _find_command(p, cmd)
+    if cmd != "" and ci < 0: ret "" end
+    mut out := ""
+    mut name := p.prog
+    mut desc := p.desc
+    if cmd != "":
+        name = p.prog + " " + cmd
+        desc = p.commands.get(ci).help
+    end
+    out = out + _color_on("\x1b[1m\x1b[32m", name, color)
+    if cmd == "" and p.version != "":
+        out = out + " " + p.version
+    end
+    out = out + "\n"
+    if desc != "":
+        out = out + desc + "\n"
+    end
+    out = out + "\n" + _render_usage(p, cmd)
+    if cmd == "" and p.commands.len() > 0:
+        mut shown := 0
+        repeat p.commands.len() in i:
+            if not p.commands.get(i).hidden: shown += 1 end
+        end
+        if shown > 0:
+            out = out + "\nCommands:\n"
+            mut width := 0
+            repeat p.commands.len() in i:
+                if not p.commands.get(i).hidden and p.commands.get(i).name.len() > width:
+                    width = p.commands.get(i).name.len()
+                end
+            end
+            repeat p.commands.len() in i:
+                c := p.commands.get(i)
+                if not c.hidden:
+                    out = out + "  " + _color_on("\x1b[32m", _pad(c.name, width), color) + "  " + c.help + "\n"
+                end
+            end
+        end
+    end
+    args := _command_args(p, cmd)
+    mut shown_args := 0
+    repeat args.len() in i:
+        if args.get(i).name != "": shown_args += 1 end
+    end
+    if shown_args > 0:
+        out = out + "\nArguments:\n"
+        mut width := 0
+        repeat args.len() in i:
+            label := _arg_label(args.get(i))
+            if label.len() > width: width = label.len() end
+        end
+        repeat args.len() in i:
+            a := args.get(i)
+            out = out + "  " + _color_on("\x1b[32m", _pad(_arg_label(a), width), color) + "  " + _arg_help(a) + "\n"
+        end
+    end
+    opts := _command_options(p, cmd)
+    mut shown_opts := 0
+    repeat opts.len() in i:
+        if not opts.get(i).hidden: shown_opts += 1 end
+    end
+    mut extra := 0
+    if p.help_flag: extra += 1 end
+    if cmd == "" and p.version != "": extra += 1 end
+    if shown_opts + extra > 0:
+        out = out + "\nOptions:\n"
+        mut width := 0
+        repeat opts.len() in i:
+            if not opts.get(i).hidden:
+                label := _opt_label(opts.get(i))
+                if label.len() > width: width = label.len() end
+            end
+        end
+        if p.help_flag and 10 > width: width = 10 end
+        if cmd == "" and p.version != "" and 11 > width: width = 11 end
+        repeat opts.len() in i:
+            o := opts.get(i)
+            if not o.hidden:
+                label := _color_on("\x1b[32m", _pad(_opt_label(o), width), color)
+                mut line := "  " + label + "  " + o.help
+                if o.has_default and o.default_value != "":
+                    line = line + " (default: " + o.default_value + ")"
+                end
+                out = out + line + "\n"
+            end
+        end
+        if p.help_flag:
+            out = out + "  " + _color_on("\x1b[32m", _pad("-h, --help", width), color) + "  Show this help\n"
+        end
+        if cmd == "" and p.version != "":
+            out = out + "  " + _color_on("\x1b[32m", _pad("    --version", width), color) + "  Show the version\n"
+        end
+    end
+    if cmd != "" and (p.options.len() > 0 or p.version != ""):
+        out = out + "\nGlobal options:\n"
+        mut width := 0
+        repeat p.options.len() in i:
+            label := _opt_label(p.options.get(i))
+            if label.len() > width: width = label.len() end
+        end
+        if p.version != "" and 11 > width: width = 11 end
+        repeat p.options.len() in i:
+            o := p.options.get(i)
+            if not o.hidden:
+                mut line := _color_on("\x1b[32m", _pad(_opt_label(o), width), color) + "  " + o.help
+                if o.has_default and o.default_value != "":
+                    line = line + " (default: " + o.default_value + ")"
+                end
+                out = out + "  " + line + "\n"
+            end
+        end
+        if p.version != "":
+            out = out + "  " + _color_on("\x1b[32m", _pad("    --version", width), color) + "  Show the version\n"
+        end
+    end
+    ret out
+end
+
+func _want_color(p &: Parser): bool:
+    if p.color == ArgColorNever: ret false end
+    if p.color == ArgColorAlways: ret true end
+    if os.Env("NO_COLOR") != "": ret false end
+    mode := os.Env("ARGON_COLOR")
+    if mode == "never": ret false end
+    if mode == "always": ret true end
+    ret term.IsTerminal()
+end
+
+func _sanitize(text: str): str:
+    mut out := ""
+    repeat text.len() in i:
+        c := text.substr(i, 1)
+        code := char_code(c)
+        if (code >= 48 and code <= 57) or (code >= 65 and code <= 90) or (code >= 97 and code <= 122):
+            out = out + c
+        else:
+            out = out + "_"
+        end
+    end
+    ret out
+end
+
+func _completion_words(p &: Parser, cmd: str): str:
+    mut words := Vector {} as Vector<str>
+    if cmd == "":
+        repeat p.commands.len() in i:
+            if not p.commands.get(i).hidden:
+                words.push(p.commands.get(i).name)
+            end
+        end
+    end
+    if cmd != "":
+        repeat p.options.len() in i:
+            o := p.options.get(i)
+            if not o.hidden:
+                words.push("--" + o.name)
+                if o.negatable:
+                    words.push("--no-" + o.name)
+                end
+                if o.short != "":
+                    words.push("-" + o.short)
+                end
+            end
+        end
+    end
+    opts := _command_options(p, cmd)
+    repeat opts.len() in i:
+        o := opts.get(i)
+        if not o.hidden:
+            words.push("--" + o.name)
+            if o.negatable:
+                words.push("--no-" + o.name)
+            end
+            if o.short != "":
+                words.push("-" + o.short)
+            end
+        end
+    end
+    if p.help_flag:
+        words.push("--help")
+        words.push("-h")
+    end
+    if cmd == "" and p.version != "": words.push("--version") end
+    ret str.Join(words, " ")
+end
+
+func _completion(p &: Parser, shell: str): str:
+    fn := "_" + _sanitize(p.prog)
+    if shell == "bash":
+        mut out := "# bash completion for " + p.prog + "\n"
+        out = out + fn + "() {\n"
+        out = out + "    local cur cmd opts\n"
+        out = out + "    cur=\"${COMP_WORDS[COMP_CWORD]}\"\n"
+        out = out + "    cmd=\"\"\n"
+        out = out + "    if [ \"$COMP_CWORD\" -gt 1 ]; then cmd=\"${COMP_WORDS[1]}\"; fi\n"
+        out = out + "    case \"$cmd\" in\n"
+        repeat p.commands.len() in i:
+            c := p.commands.get(i)
+            if not c.hidden:
+                out = out + "        " + c.name + ") opts=\"" + _completion_words(p, c.name) + "\" ;;\n"
+            end
+        end
+        out = out + "        *) opts=\"" + _completion_words(p, "") + "\" ;;\n"
+        out = out + "    esac\n"
+        out = out + "    COMPREPLY=( $(compgen -W \"$opts\" -- \"$cur\") )\n"
+        out = out + "}\n"
+        out = out + "complete -F " + fn + " " + p.prog + "\n"
+        ret out
+    end
+    if shell == "zsh":
+        mut out := "#compdef " + p.prog + "\n"
+        out = out + fn + "() {\n"
+        out = out + "    local -a words\n"
+        out = out + "    words=(" + _completion_words(p, "") + ")\n"
+        out = out + "    compadd -- $words\n"
+        out = out + "}\n"
+        out = out + "compdef " + fn + " " + p.prog + "\n"
+        ret out
+    end
+    ret ""
+end
+
+pub func New(program: str, description: str): Parser:
+    ret Parser { prog = program, desc = description }
+end
+
+pub func NewCommand(name: str, help: str): Command:
+    ret Command { name = name, help = help }
+end
+
+pub func NewOption(name: str, short: str, help: str, kind: int): OptionSpec:
+    ret OptionSpec { name = name, short = short, help = help, kind = kind }
+end
+
+pub func NewFlag(name: str, short: str, help: str): OptionSpec:
+    ret _flag_spec(name, short, help)
+end
+
+pub func NewNegatableFlag(name: str, short: str, help: str, default_on: bool): OptionSpec:
+    ret _negatable_spec(name, short, help, default_on)
+end
+
+pub func NewCountFlag(name: str, short: str, help: str): OptionSpec:
+    ret _count_spec(name, short, help)
+end
+
+pub func NewStrOption(name: str, short: str, help: str, default_value: str): OptionSpec:
+    ret _str_spec(name, short, help, default_value)
+end
+
+pub func NewIntOption(name: str, short: str, help: str, default_value: i64): OptionSpec:
+    ret _int_spec(name, short, help, default_value)
+end
+
+pub func NewFloatOption(name: str, short: str, help: str, default_value: f64): OptionSpec:
+    ret _float_spec(name, short, help, default_value)
+end
+
+pub func NewBoolOption(name: str, short: str, help: str, default_value: bool): OptionSpec:
+    ret _bool_spec(name, short, help, default_value)
+end
+
+pub func NewMultiOption(name: str, short: str, help: str): OptionSpec:
+    ret _multi_spec(name, short, help)
+end
+
+pub func NewArgument(name: str, help: str): ArgumentSpec:
+    ret _argument_spec(name, help, true, false, 1, 1)
+end
+
+pub func NewOptionalArgument(name: str, help: str): ArgumentSpec:
+    ret _argument_spec(name, help, false, false, 0, 1)
+end
+
+pub func NewRestArgument(name: str, help: str, min_count: int): ArgumentSpec:
+    ret _argument_spec(name, help, min_count > 0, true, min_count, 0)
+end
