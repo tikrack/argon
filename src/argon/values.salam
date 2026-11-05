@@ -1,0 +1,142 @@
+package argon_values
+
+import str
+
+func is_digit(text: str): bool:
+    ret text.len() == 1 and str.IsAsciiDigit(char_code(text))
+end
+
+pub func ParseInt(text: str, out &: i64): bool:
+    t := text.trim()
+    n := t.len()
+    if n == 0: ret false end
+    mut i := 0
+    mut neg := false
+    first := t.substr(0, 1)
+    if first == "-" or first == "+":
+        neg = first == "-"
+        i = 1
+    end
+    if i >= n: ret false end
+    mut acc := 0 as i64
+    mut digits := 0
+    until i < n:
+        c := t.substr(i, 1)
+        if not is_digit(c): ret false end
+        d := (char_code(c) - 48) as i64
+        if acc > 922337203685477580:
+            ret false
+        end
+        if acc == 922337203685477580:
+            if neg and d == 8:
+                if i + 1 < n: ret false end
+                out = (0 - 9223372036854775807) - 1
+                ret true
+            end
+            if d > 7: ret false end
+        end
+        acc = acc * 10 + d
+        digits += 1
+        i += 1
+    end
+    if digits == 0: ret false end
+    if neg: acc = 0 - acc end
+    out = acc
+    ret true
+end
+
+pub func ParseFloat(text: str, out &: f64): bool:
+    t := text.trim()
+    n := t.len()
+    if n == 0: ret false end
+    mut i := 0
+    mut neg := false
+    first := t.substr(0, 1)
+    if first == "-" or first == "+":
+        neg = first == "-"
+        i = 1
+    end
+    if i >= n: ret false end
+    mut value := 0.0
+    mut digits := 0
+    until i < n:
+        c := t.substr(i, 1)
+        if not is_digit(c): break end
+        value = value * 10.0 + ((char_code(c) - 48) as f64)
+        digits += 1
+        i += 1
+    end
+    if i < n and t.substr(i, 1) == ".":
+        i += 1
+        mut scale := 0.1
+        until i < n:
+            c := t.substr(i, 1)
+            if not is_digit(c): break end
+            value = value + ((char_code(c) - 48) as f64) * scale
+            scale = scale / 10.0
+            digits += 1
+            i += 1
+        end
+    end
+    if digits == 0: ret false end
+    if i < n:
+        e := t.substr(i, 1)
+        if e != "e" and e != "E": ret false end
+        i += 1
+        mut eneg := false
+        if i < n:
+            sign := t.substr(i, 1)
+            if sign == "-" or sign == "+":
+                eneg = sign == "-"
+                i += 1
+            end
+        end
+        if i >= n: ret false end
+        mut exp := 0
+        mut edigits := 0
+        until i < n:
+            c := t.substr(i, 1)
+            if not is_digit(c): ret false end
+            exp = exp * 10 + (char_code(c) - 48)
+            if exp > 400: ret false end
+            edigits += 1
+            i += 1
+        end
+        if edigits == 0: ret false end
+        if eneg: exp = 0 - exp end
+        if exp > 308: ret false end
+        mut k := 0
+        if exp > 0:
+            until k < exp:
+                value = value * 10.0
+                k += 1
+            end
+        else:
+            until k < (0 - exp):
+                value = value / 10.0
+                k += 1
+            end
+        end
+    end
+    if i != n: ret false end
+    if neg: value = 0.0 - value end
+    out = value
+    ret true
+end
+
+pub func ParseBool(text: str, out &: bool): bool:
+    t := text.trim().lower()
+    if t == "true" or t == "1" or t == "yes" or t == "on":
+        out = true
+        ret true
+    end
+    if t == "false" or t == "0" or t == "no" or t == "off":
+        out = false
+        ret true
+    end
+    ret false
+end
+
+pub func IsOptionToken(text: str): bool:
+    ret text.len() > 1 and text.substr(0, 1) == "-"
+end
