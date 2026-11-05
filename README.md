@@ -40,13 +40,20 @@ Argon is written in Salam and uses only the standard library.
 
 ## Installing from source
 
-Argon is a single library file, `src/argon.salam`. There is no package manager
-step. Copy the file into your project, or keep the repository layout and include
-it with a relative path:
+Argon ships as a thin facade, `src/argon.salam`, plus small package files under
+`src/argon/`. There is no package manager step. Keep the whole `src/` directory
+together, or copy it into your project, then include the facade with a relative
+path:
 
 ```salam
 include argon "src/argon.salam"
 ```
+
+Salam's `import` keyword is reserved for standard library packages. Local
+project files are joined with `include`, and each file declares its own
+`package`. Argon uses that mechanism to keep the parser, validation, help,
+completion, value parsing, and data types in separate modules that the facade
+includes for you.
 
 If Salam is not on your `PATH`, use the compiler that ships with your
 installation, for example:
@@ -388,8 +395,13 @@ make test
 or directly:
 
 ```sh
-salam run tests/argon_test.salam
+salam run tests/argon_test.salam --backend=c
 ```
+
+Argon uses several local packages. On Salam 0.5.4 the LLVM backend does not yet
+lower cross-package structs, so a plain `salam run` prints fallback messages
+before switching to the C backend. Passing `--backend=c` avoids those messages.
+Newer compilers may handle the LLVM path without a fallback.
 
 The suite contains 189 assertions covering flags, long and short forms, all
 value syntaxes, defaults, typing, overflow, positionals, required items, unknown
@@ -413,19 +425,22 @@ argon/
 ├── README.md
 ├── main.salam              demo application
 ├── src/
-│   └── argon.salam         the library
+│   ├── argon.salam         public facade and Parser type
+│   └── argon/
+│       ├── spec.salam      option, argument, command and program definitions
+│       ├── result.salam    parse result and typed value accessors
+│       ├── parse.salam     token handling and the parse loop
+│       ├── check.salam     required, range, length and allowed-value checks
+│       ├── help.salam      usage and help rendering
+│       ├── complete.salam  Bash and Zsh completion
+│       └── values.salam    strict integer, float and boolean parsing
 ├── examples/
 │   ├── basic.salam
 │   ├── options.salam
 │   ├── subcommands.salam
 │   └── validation.salam
-├── tests/
-│   └── argon_test.salam
-└── site/
-    ├── index.html
-    ├── styles.css
-    ├── app.js
-    └── README.md
+└── tests/
+    └── argon_test.salam
 ```
 
 There is no `argon.ini`: Argon has no runtime configuration file. Colour and
