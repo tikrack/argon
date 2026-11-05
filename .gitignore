@@ -1,0 +1,8 @@
+*.o
+*.ll
+*.c
+*.out
+*.exe
+build/
+dist/
+.salam-cache/
