@@ -1,9 +1,7 @@
-package argon_model
+package argon_spec
 
 import str
 import conv
-
-include valu "values.salam"
 
 pub const ArgKindFlag := 0
 pub const ArgKindStr := 1
@@ -211,161 +209,6 @@ pub struct Program:
     end
 end
 
-pub struct Value:
-    pub name: str = ""
-    pub kind: int = ArgKindFlag
-    pub count: int = 0
-    pub values: Vector<str> = Vector {}
-    pub is_argument: bool = false
-    pub func Free(): this.values.free() end
-end
-
-pub struct Result:
-    pub prog: str = ""
-    pub ok: bool = false
-    pub help_wanted: bool = false
-    pub version_wanted: bool = false
-    pub command: str = ""
-    pub err_kind: str = ""
-    pub err_message: str = ""
-    pub err_option: str = ""
-    pub values: Vector<Value> = Vector {}
-    pub extras: Vector<str> = Vector {}
-    pub func Ok(): bool: ret this.ok end
-    pub func HelpWanted(): bool: ret this.help_wanted end
-    pub func VersionWanted(): bool: ret this.version_wanted end
-    pub func Command(): str: ret this.command end
-    pub func IsSet(name: str): bool:
-        i := FindValue(this, name)
-        if i < 0: ret false end
-        ret this.values.get(i).count > 0
-    end
-    pub func Num(name: str): int:
-        i := FindValue(this, name)
-        if i < 0: ret 0 end
-        ret this.values.get(i).count
-    end
-    pub func Str(name: str): str:
-        i := FindValue(this, name)
-        if i < 0: ret "" end
-        v := this.values.get(i)
-        if v.values.len() == 0: ret "" end
-        ret v.values.get(0)
-    end
-    pub func Int(name: str): i64:
-        i := FindValue(this, name)
-        if i < 0: ret 0 end
-        v := this.values.get(i)
-        if v.kind == ArgKindCount: ret v.count end
-        if v.values.len() == 0: ret 0 end
-        mut n := 0 as i64
-        if not valu.ParseInt(v.values.get(0), n): ret 0 end
-        ret n
-    end
-    pub func Float(name: str): f64:
-        i := FindValue(this, name)
-        if i < 0: ret 0.0 end
-        v := this.values.get(i)
-        if v.values.len() == 0: ret 0.0 end
-        mut x := 0.0
-        if not valu.ParseFloat(v.values.get(0), x): ret 0.0 end
-        ret x
-    end
-    pub func Bool(name: str): bool:
-        i := FindValue(this, name)
-        if i < 0: ret false end
-        v := this.values.get(i)
-        if v.kind == ArgKindCount: ret v.count > 0 end
-        if v.values.len() == 0: ret false end
-        mut b := false
-        if not valu.ParseBool(v.values.get(0), b): ret false end
-        ret b
-    end
-    pub func ValueCount(name: str): int:
-        i := FindValue(this, name)
-        if i < 0: ret 0 end
-        ret this.values.get(i).values.len()
-    end
-    pub func ValueAt(name: str, index: int): str:
-        i := FindValue(this, name)
-        if i < 0: ret "" end
-        v := this.values.get(i)
-        if index < 0 or index >= v.values.len(): ret "" end
-        ret v.values.get(index)
-    end
-    pub func Strs(name: str): Vector<str>:
-        mut out := Vector {} as Vector<str>
-        i := FindValue(this, name)
-        if i < 0: ret out end
-        v := this.values.get(i)
-        repeat v.values.len() in k:
-            out.push(v.values.get(k))
-        end
-        ret out
-    end
-    pub func Ints(name: str): Vector<i64>:
-        mut out := Vector {} as Vector<i64>
-        i := FindValue(this, name)
-        if i < 0: ret out end
-        v := this.values.get(i)
-        repeat v.values.len() in k:
-            mut n := 0 as i64
-            if valu.ParseInt(v.values.get(k), n): out.push(n) end
-        end
-        ret out
-    end
-    pub func Floats(name: str): Vector<f64>:
-        mut out := Vector {} as Vector<f64>
-        i := FindValue(this, name)
-        if i < 0: ret out end
-        v := this.values.get(i)
-        repeat v.values.len() in k:
-            mut x := 0.0
-            if valu.ParseFloat(v.values.get(k), x): out.push(x) end
-        end
-        ret out
-    end
-    pub func Bools(name: str): Vector<bool>:
-        mut out := Vector {} as Vector<bool>
-        i := FindValue(this, name)
-        if i < 0: ret out end
-        v := this.values.get(i)
-        repeat v.values.len() in k:
-            mut b := false
-            if valu.ParseBool(v.values.get(k), b): out.push(b) end
-        end
-        ret out
-    end
-    pub func Extras(): Vector<str>:
-        mut out := Vector {} as Vector<str>
-        repeat this.extras.len() in i:
-            out.push(this.extras.get(i))
-        end
-        ret out
-    end
-    pub func ErrorKind(): str: ret this.err_kind end
-    pub func ErrorMessage(): str: ret this.err_message end
-    pub func Error(): str:
-        if this.err_message == "": ret "" end
-        mut out := "error: " + this.err_message
-        if this.prog != "":
-            out = out + "\ntry '" + this.prog + " --help' for more information."
-        end
-        ret out
-    end
-    pub func ExitCode(): int:
-        if this.ok or this.help_wanted or this.version_wanted: ret ArgExitOK end
-        ret ArgExitUsage
-    end
-    pub func Free():
-        repeat this.values.len() in i:
-            this.values.get(i).Free()
-        end
-        this.values.free()
-        this.extras.free()
-    end
-end
-
 func _flag_spec(name: str, short: str, help: str): OptionSpec:
     ret OptionSpec { name = name, short = short, help = help, kind = ArgKindFlag }
 end
@@ -556,13 +399,6 @@ func _find_short(options: Vector<OptionSpec>, name: str): int:
     if name == "": ret 0 - 1 end
     repeat options.len() in i:
         if options.get(i).short == name: ret i end
-    end
-    ret 0 - 1
-end
-
-pub func FindValue(res &: Result, name: str): int:
-    repeat res.values.len() in i:
-        if res.values.get(i).name == name: ret i end
     end
     ret 0 - 1
 end

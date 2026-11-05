@@ -4,7 +4,7 @@ import str
 import os
 import term
 
-include model "model.salam"
+include model "spec.salam"
 
 const ArgKindFlag := 0
 const ArgKindStr := 1

@@ -2,7 +2,7 @@ package argon_complete
 
 import str
 
-include model "model.salam"
+include model "spec.salam"
 
 func _sanitize(text: str): str:
     mut out := ""

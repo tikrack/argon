@@ -3,7 +3,8 @@ package argon_parse
 import str
 import conv
 
-include model "model.salam"
+include model "spec.salam"
+include result "result.salam"
 include valu "values.salam"
 
 const ArgKindFlag := 0
@@ -13,13 +14,13 @@ const ArgKindFloat := 3
 const ArgKindBool := 4
 const ArgKindCount := 5
 
-type Result = model.Result
+type Result = result.Result
 type OptionSpec = model.OptionSpec
 type ArgumentSpec = model.ArgumentSpec
 
 struct ParseState:
     pub args: Vector<str> = Vector {}
-    pub res: Result = model.Result {}
+    pub res: Result = result.Result {}
     pub i: int = 0
     pub only_pos: bool = false
     pub cmd: str = ""
@@ -44,7 +45,7 @@ end
 func _ensure_value(res &: Result, name: str, kind: int, is_argument: bool): int:
     i := _find_value(res, name)
     if i >= 0: ret i end
-    mut v := model.Value {}
+    mut v := result.Value {}
     v.name = name
     v.kind = kind
     v.is_argument = is_argument
@@ -81,7 +82,7 @@ func _add_positional_value(res &: Result, spec: ArgumentSpec, text: str):
 end
 
 func _init_result(p: model.Program, cmd: str): Result:
-    mut res := model.Result {}
+    mut res := result.Result {}
     res.prog = p.prog
     res.command = cmd
     repeat p.options.len() in i:
@@ -470,7 +471,7 @@ func _parse_loop(p: model.Program, st &: ParseState):
 end
 
 pub func All(p: model.Program, args: Vector<str>): Result:
-    mut res := model.Result {}
+    mut res := result.Result {}
     res.prog = p.prog
     if p.def_error != "":
         _fail(res, "definition", p.def_error)

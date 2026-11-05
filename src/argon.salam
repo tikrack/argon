@@ -3,7 +3,8 @@ package argon
 
 import os
 
-include model "argon/model.salam"
+include model "argon/spec.salam"
+include result "argon/result.salam"
 include parse "argon/parse.salam"
 include help "argon/help.salam"
 include complete "argon/complete.salam"
@@ -25,8 +26,8 @@ pub const ArgExitUsage := 2
 pub type OptionSpec = model.OptionSpec
 pub type ArgumentSpec = model.ArgumentSpec
 pub type Command = model.Command
-pub type Value = model.Value
-pub type Result = model.Result
+pub type Value = result.Value
+pub type Result = result.Result
 
 pub struct Parser:
     pub program: model.Program = model.Program {}
