@@ -1,0 +1,247 @@
+package argon_help
+
+import str
+import os
+import term
+
+include model "model.salam"
+
+const ArgKindFlag := 0
+const ArgKindStr := 1
+const ArgKindInt := 2
+const ArgKindFloat := 3
+const ArgKindBool := 4
+const ArgKindCount := 5
+
+const ArgColorAuto := 0
+const ArgColorAlways := 1
+const ArgColorNever := 2
+
+type OptionSpec = model.OptionSpec
+type ArgumentSpec = model.ArgumentSpec
+
+func _kind_name(kind: int): str:
+    if kind == ArgKindStr: ret "string" end
+    if kind == ArgKindInt: ret "int" end
+    if kind == ArgKindFloat: ret "float" end
+    if kind == ArgKindBool: ret "bool" end
+    if kind == ArgKindCount: ret "count" end
+    ret "flag"
+end
+func _opt_label(spec: OptionSpec): str:
+    mut out := "    "
+    if spec.short != "":
+        out = "-" + spec.short + ", "
+    end
+    if spec.negatable:
+        out = out + "--[no-]" + spec.name
+    else:
+        out = out + "--" + spec.name
+    end
+    if spec.kind == ArgKindStr or spec.kind == ArgKindInt or spec.kind == ArgKindFloat or spec.kind == ArgKindBool:
+        out = out + " <" + _kind_name(spec.kind) + ">"
+        if spec.repeatable: out = out + "..." end
+    end
+    ret out
+end
+
+func _arg_label(spec: ArgumentSpec): str:
+    mut out := "<" + spec.name + ">"
+    if spec.required == false:
+        out = "[" + spec.name + "]"
+    end
+    if spec.many:
+        if spec.required:
+            out = "<" + spec.name + "...>"
+        else:
+            out = "[" + spec.name + "...]"
+        end
+    end
+    ret out
+end
+
+func _arg_help(spec: ArgumentSpec): str:
+    if spec.many:
+        if spec.min_count > 0:
+            ret spec.help + " (one or more)"
+        end
+        ret spec.help + " (zero or more)"
+    end
+    ret spec.help
+end
+
+func _pad(text: str, width: int): str:
+    n := width - text.len()
+    if n <= 0: ret text end
+    ret text + str.Repeat(" ", n)
+end
+
+func _color_on(code: str, text: str, enabled: bool): str:
+    if not enabled: ret text end
+    ret code + text + "\x1b[0m"
+end
+
+func _usage_line(p: model.Program, cmd: str): str:
+    mut out := p.prog
+    if cmd == "":
+        out = out + " [options]"
+        if p.commands.len() > 0:
+            out = out + " <command>"
+        else:
+            repeat p.args.len() in i:
+                out = out + " " + _arg_label(p.args.get(i))
+            end
+        end
+    else:
+        out = out + " " + cmd + " [options]"
+        repeat model.CommandArgs(p, cmd).len() in i:
+            out = out + " " + _arg_label(model.CommandArgs(p, cmd).get(i))
+        end
+    end
+    ret out
+end
+
+func _root_args_line(p: model.Program): str:
+    mut out := p.prog + " [options]"
+    repeat p.args.len() in i:
+        out = out + " " + _arg_label(p.args.get(i))
+    end
+    ret out
+end
+
+pub func RenderUsage(p: model.Program, cmd: str): str:
+    mut out := "Usage:\n  " + _usage_line(p, cmd) + "\n"
+    if cmd == "" and p.commands.len() > 0 and p.args.len() > 0:
+        out = out + "  " + _root_args_line(p) + "\n"
+    end
+    ret out
+end
+
+pub func Render(p: model.Program, cmd: str, color: bool): str:
+    ci := model.FindCommand(p, cmd)
+    if cmd != "" and ci < 0: ret "" end
+    mut out := ""
+    mut name := p.prog
+    mut desc := p.desc
+    if cmd != "":
+        name = p.prog + " " + cmd
+        desc = p.commands.get(ci).help
+    end
+    out = out + _color_on("\x1b[1m\x1b[32m", name, color)
+    if cmd == "" and p.version != "":
+        out = out + " " + p.version
+    end
+    out = out + "\n"
+    if desc != "":
+        out = out + desc + "\n"
+    end
+    out = out + "\n" + RenderUsage(p, cmd)
+    if cmd == "" and p.commands.len() > 0:
+        mut shown := 0
+        repeat p.commands.len() in i:
+            if not p.commands.get(i).hidden: shown += 1 end
+        end
+        if shown > 0:
+            out = out + "\nCommands:\n"
+            mut width := 0
+            repeat p.commands.len() in i:
+                if not p.commands.get(i).hidden and p.commands.get(i).name.len() > width:
+                    width = p.commands.get(i).name.len()
+                end
+            end
+            repeat p.commands.len() in i:
+                c := p.commands.get(i)
+                if not c.hidden:
+                    out = out + "  " + _color_on("\x1b[32m", _pad(c.name, width), color) + "  " + c.help + "\n"
+                end
+            end
+        end
+    end
+    args := model.CommandArgs(p, cmd)
+    mut shown_args := 0
+    repeat args.len() in i:
+        if args.get(i).name != "": shown_args += 1 end
+    end
+    if shown_args > 0:
+        out = out + "\nArguments:\n"
+        mut width := 0
+        repeat args.len() in i:
+            label := _arg_label(args.get(i))
+            if label.len() > width: width = label.len() end
+        end
+        repeat args.len() in i:
+            a := args.get(i)
+            out = out + "  " + _color_on("\x1b[32m", _pad(_arg_label(a), width), color) + "  " + _arg_help(a) + "\n"
+        end
+    end
+    opts := model.CommandOptions(p, cmd)
+    mut shown_opts := 0
+    repeat opts.len() in i:
+        if not opts.get(i).hidden: shown_opts += 1 end
+    end
+    mut extra := 0
+    if p.help_flag: extra += 1 end
+    if cmd == "" and p.version != "": extra += 1 end
+    if shown_opts + extra > 0:
+        out = out + "\nOptions:\n"
+        mut width := 0
+        repeat opts.len() in i:
+            if not opts.get(i).hidden:
+                label := _opt_label(opts.get(i))
+                if label.len() > width: width = label.len() end
+            end
+        end
+        if p.help_flag and 10 > width: width = 10 end
+        if cmd == "" and p.version != "" and 11 > width: width = 11 end
+        repeat opts.len() in i:
+            o := opts.get(i)
+            if not o.hidden:
+                label := _color_on("\x1b[32m", _pad(_opt_label(o), width), color)
+                mut line := "  " + label + "  " + o.help
+                if o.has_default and o.default_value != "":
+                    line = line + " (default: " + o.default_value + ")"
+                end
+                out = out + line + "\n"
+            end
+        end
+        if p.help_flag:
+            out = out + "  " + _color_on("\x1b[32m", _pad("-h, --help", width), color) + "  Show this help\n"
+        end
+        if cmd == "" and p.version != "":
+            out = out + "  " + _color_on("\x1b[32m", _pad("    --version", width), color) + "  Show the version\n"
+        end
+    end
+    if cmd != "" and (p.options.len() > 0 or p.version != ""):
+        out = out + "\nGlobal options:\n"
+        mut width := 0
+        repeat p.options.len() in i:
+            label := _opt_label(p.options.get(i))
+            if label.len() > width: width = label.len() end
+        end
+        if p.version != "" and 11 > width: width = 11 end
+        repeat p.options.len() in i:
+            o := p.options.get(i)
+            if not o.hidden:
+                mut line := _color_on("\x1b[32m", _pad(_opt_label(o), width), color) + "  " + o.help
+                if o.has_default and o.default_value != "":
+                    line = line + " (default: " + o.default_value + ")"
+                end
+                out = out + "  " + line + "\n"
+            end
+        end
+        if p.version != "":
+            out = out + "  " + _color_on("\x1b[32m", _pad("    --version", width), color) + "  Show the version\n"
+        end
+    end
+    ret out
+end
+
+pub func WantColor(p: model.Program): bool:
+    if p.color == ArgColorNever: ret false end
+    if p.color == ArgColorAlways: ret true end
+    if os.Env("NO_COLOR") != "": ret false end
+    mode := os.Env("ARGON_COLOR")
+    if mode == "never": ret false end
+    if mode == "always": ret true end
+    ret term.IsTerminal()
+end

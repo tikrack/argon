@@ -1,0 +1,493 @@
+package argon_parse
+
+import str
+import conv
+
+include model "model.salam"
+include valu "values.salam"
+
+const ArgKindFlag := 0
+const ArgKindStr := 1
+const ArgKindInt := 2
+const ArgKindFloat := 3
+const ArgKindBool := 4
+const ArgKindCount := 5
+
+type Result = model.Result
+type OptionSpec = model.OptionSpec
+type ArgumentSpec = model.ArgumentSpec
+
+struct ParseState:
+    pub args: Vector<str> = Vector {}
+    pub res: Result = model.Result {}
+    pub i: int = 0
+    pub only_pos: bool = false
+    pub cmd: str = ""
+    pub arg_index: int = 0
+    pub arg_count: int = 0
+end
+
+func _find_option(options: Vector<OptionSpec>, name: str): int:
+    repeat options.len() in i:
+        if options.get(i).name == name: ret i end
+    end
+    ret 0 - 1
+end
+
+func _find_value(res &: Result, name: str): int:
+    repeat res.values.len() in i:
+        if res.values.get(i).name == name: ret i end
+    end
+    ret 0 - 1
+end
+
+func _ensure_value(res &: Result, name: str, kind: int, is_argument: bool): int:
+    i := _find_value(res, name)
+    if i >= 0: ret i end
+    mut v := model.Value {}
+    v.name = name
+    v.kind = kind
+    v.is_argument = is_argument
+    res.values.push(v)
+    ret res.values.len() - 1
+end
+
+func _add_default(res &: Result, spec: OptionSpec):
+    i := _ensure_value(res, spec.name, spec.kind, false)
+    if spec.has_default:
+        v := res.values.get(i)
+        v.values.push(spec.default_value)
+        res.values.set(i, v)
+    end
+end
+
+func _set_option(res &: Result, spec: OptionSpec, text: str):
+    i := _ensure_value(res, spec.name, spec.kind, false)
+    v := res.values.get(i)
+    if v.count == 0 and v.values.len() > 0:
+        v.values.clear()
+    end
+    v.count += 1
+    v.values.push(text)
+    res.values.set(i, v)
+end
+
+func _add_positional_value(res &: Result, spec: ArgumentSpec, text: str):
+    i := _ensure_value(res, spec.name, ArgKindStr, true)
+    v := res.values.get(i)
+    v.count += 1
+    v.values.push(text)
+    res.values.set(i, v)
+end
+
+func _init_result(p: model.Program, cmd: str): Result:
+    mut res := model.Result {}
+    res.prog = p.prog
+    res.command = cmd
+    repeat p.options.len() in i:
+        _add_default(res, p.options.get(i))
+    end
+    if cmd != "":
+        ci := model.FindCommand(p, cmd)
+        if ci >= 0:
+            repeat p.commands.get(ci).options.len() in j:
+                spec := p.commands.get(ci).options.get(j)
+                if _find_value(res, spec.name) < 0:
+                    _add_default(res, spec)
+                end
+            end
+        end
+    end
+    ret res
+end
+
+func _fail(res &: Result, kind: str, message: str):
+    res.ok = false
+    res.err_kind = kind
+    res.err_message = message
+    res.err_option = ""
+end
+
+func _fail_option(res &: Result, kind: str, message: str, option: str):
+    res.ok = false
+    res.err_kind = kind
+    res.err_message = message
+    res.err_option = option
+end
+
+func _value_allowed_as_next(text: str, kind: int): bool:
+    if not valu.IsOptionToken(text): ret true end
+    if kind == ArgKindInt or kind == ArgKindFloat:
+        mut n := 0 as i64
+        if valu.ParseInt(text, n): ret true end
+        mut x := 0.0
+        if valu.ParseFloat(text, x): ret true end
+    end
+    ret text == "-"
+end
+
+func _validate_option(res &: Result, spec: OptionSpec):
+    i := _find_value(res, spec.name)
+    if spec.required and (i < 0 or res.values.get(i).count == 0):
+        _fail_option(res, "missing-required", "missing required option '--" + spec.name + "'", spec.name)
+        ret
+    end
+    if i < 0: ret end
+    v := res.values.get(i)
+    if spec.repeatable == false and spec.kind != ArgKindFlag and spec.kind != ArgKindBool and spec.kind != ArgKindCount and v.count > 1:
+        _fail_option(res, "duplicate-option", "option '--" + spec.name + "' can be given only once", spec.name)
+        ret
+    end
+    if v.count == 0: ret end
+    if spec.kind == ArgKindCount:
+        ret
+    end
+    mut at := 0
+    until at < v.values.len():
+        text := v.values.get(at)
+        if spec.kind == ArgKindInt:
+            mut n := 0 as i64
+            if not valu.ParseInt(text, n):
+                _fail_option(res, "invalid-value", "invalid int value for '--" + spec.name + "': '" + text + "'", spec.name)
+                ret
+            end
+            if spec.has_min and (n as f64) < spec.min_value:
+                _fail_option(res, "out-of-range", "value '" + text + "' for '--" + spec.name + "' is below the minimum " + conv.FormatFloat(spec.min_value), spec.name)
+                ret
+            end
+            if spec.has_max and (n as f64) > spec.max_value:
+                _fail_option(res, "out-of-range", "value '" + text + "' for '--" + spec.name + "' is above the maximum " + conv.FormatFloat(spec.max_value), spec.name)
+                ret
+            end
+        else spec.kind == ArgKindFloat:
+            mut x := 0.0
+            if not valu.ParseFloat(text, x):
+                _fail_option(res, "invalid-value", "invalid float value for '--" + spec.name + "': '" + text + "'", spec.name)
+                ret
+            end
+            if spec.has_min and x < spec.min_value:
+                _fail_option(res, "out-of-range", "value '" + text + "' for '--" + spec.name + "' is below the minimum " + conv.FormatFloat(spec.min_value), spec.name)
+                ret
+            end
+            if spec.has_max and x > spec.max_value:
+                _fail_option(res, "out-of-range", "value '" + text + "' for '--" + spec.name + "' is above the maximum " + conv.FormatFloat(spec.max_value), spec.name)
+                ret
+            end
+        else spec.kind == ArgKindBool:
+            mut b := false
+            if not valu.ParseBool(text, b):
+                _fail_option(res, "invalid-value", "invalid bool value for '--" + spec.name + "': '" + text + "'", spec.name)
+                ret
+            end
+        else:
+            if spec.has_min_len and text.char_count() < spec.min_len:
+                _fail_option(res, "too-short", "value for '--" + spec.name + "' must have at least " + conv.FormatInt(spec.min_len as i64) + " characters", spec.name)
+                ret
+            end
+            if spec.has_max_len and text.char_count() > spec.max_len:
+                _fail_option(res, "too-long", "value for '--" + spec.name + "' must have at most " + conv.FormatInt(spec.max_len as i64) + " characters", spec.name)
+                ret
+            end
+            if spec.allowed.len() > 0:
+                mut ok := false
+                repeat spec.allowed.len() in k:
+                    if spec.allowed.get(k) == text:
+                        ok = true
+                    end
+                end
+                if not ok:
+                    _fail_option(res, "not-allowed", "invalid value '" + text + "' for '--" + spec.name + "' (allowed: " + str.Join(spec.allowed, ", ") + ")", spec.name)
+                    ret
+                end
+            end
+        end
+        at += 1
+    end
+end
+
+func _validate_argument(res &: Result, spec: ArgumentSpec):
+    i := _find_value(res, spec.name)
+    mut count := 0
+    if i >= 0: count = res.values.get(i).count end
+    if count < spec.min_count:
+        if spec.many:
+            mut unit := "values"
+            if spec.min_count == 1: unit = "value" end
+            _fail_option(res, "missing-argument", "argument '<" + spec.name + ">' needs at least " + conv.FormatInt(spec.min_count as i64) + " " + unit, spec.name)
+        else:
+            _fail_option(res, "missing-argument", "missing required argument '<" + spec.name + ">'", spec.name)
+        end
+        ret
+    end
+    if spec.max_count > 0 and count > spec.max_count:
+        _fail_option(res, "too-many-arguments", "argument '<" + spec.name + ">' accepts at most " + conv.FormatInt(spec.max_count as i64) + " values", spec.name)
+    end
+end
+
+func _validate(p: model.Program, res &: Result, cmd: str):
+    repeat p.options.len() in i:
+        spec := p.options.get(i)
+        mut skip := false
+        if cmd != "":
+            ci := model.FindCommand(p, cmd)
+            if ci >= 0 and _find_option(p.commands.get(ci).options, spec.name) >= 0:
+                skip = true
+            end
+        end
+        if not skip:
+            _validate_option(res, spec)
+            if not res.ok: ret end
+        end
+    end
+    if cmd != "":
+        ci := model.FindCommand(p, cmd)
+        if ci >= 0:
+            repeat p.commands.get(ci).options.len() in j:
+                _validate_option(res, p.commands.get(ci).options.get(j))
+                if not res.ok: ret end
+            end
+        end
+    end
+    repeat model.CommandArgs(p, cmd).len() in k:
+        _validate_argument(res, model.CommandArgs(p, cmd).get(k))
+        if not res.ok: ret end
+    end
+end
+
+func _set_long_value(st &: ParseState, spec: OptionSpec, text: str):
+    mut b := false
+    if not valu.ParseBool(text, b):
+        _fail_option(st.res, "invalid-value", "invalid bool value for '--" + spec.name + "': '" + text + "'", spec.name)
+        ret
+    end
+    _set_option(st.res, spec, b ? "true" : "false")
+end
+
+func _take_value(st &: ParseState, spec: OptionSpec, label: str):
+    if st.i + 1 >= st.args.len():
+        _fail_option(st.res, "missing-value", "option '" + label + "' needs a value", spec.name)
+        ret
+    end
+    next := st.args.get(st.i + 1)
+    if not _value_allowed_as_next(next, spec.kind):
+        _fail_option(st.res, "missing-value", "option '" + label + "' needs a value (use " + label + "=VALUE for a value that starts with '-')", spec.name)
+        ret
+    end
+    _set_option(st.res, spec, next)
+    st.i += 1
+end
+
+func _handle_long(p: model.Program, st &: ParseState):
+    arg := st.args.get(st.i)
+    body := arg.substr(2, arg.len() - 2)
+    mut name := body
+    mut has_inline := false
+    mut inline_value := ""
+    eq_at := body.find("=")
+    if eq_at >= 0:
+        name = body.substr(0, eq_at)
+        inline_value = body.substr(eq_at + 1, body.len() - eq_at - 1)
+        has_inline = true
+    end
+    if name == "":
+        _fail(st.res, "invalid-option", "invalid option '" + arg + "'")
+        ret
+    end
+    if name == "help" and p.help_flag:
+        if has_inline:
+            _fail(st.res, "unexpected-value", "option '--help' does not take a value")
+            ret
+        end
+        st.res.help_wanted = true
+        st.res.ok = true
+        ret
+    end
+    if name == "version" and p.version != "":
+        if has_inline:
+            _fail(st.res, "unexpected-value", "option '--version' does not take a value")
+            ret
+        end
+        st.res.version_wanted = true
+        st.res.ok = true
+        ret
+    end
+    mut spec := model.OptionSpec {}
+    if model.LookupOption(p, st.cmd, name, spec):
+        if spec.kind == ArgKindFlag or spec.kind == ArgKindBool:
+            if has_inline:
+                _set_long_value(st, spec, inline_value)
+            else:
+                _set_option(st.res, spec, "true")
+            end
+            ret
+        end
+        if spec.kind == ArgKindCount:
+            if has_inline:
+                _fail_option(st.res, "unexpected-value", "option '--" + spec.name + "' does not take a value", spec.name)
+                ret
+            end
+            _set_option(st.res, spec, "true")
+            ret
+        end
+        if has_inline:
+            _set_option(st.res, spec, inline_value)
+            ret
+        end
+        _take_value(st, spec, "--" + spec.name)
+        ret
+    end
+    if str.StartsWith(name, "no-"):
+        base := name.substr(3, name.len() - 3)
+        if model.LookupOption(p, st.cmd, base, spec):
+            if spec.negatable:
+                if has_inline:
+                    _fail_option(st.res, "unexpected-value", "option '--" + name + "' does not take a value", base)
+                    ret
+                end
+                _set_option(st.res, spec, "false")
+                ret
+            end
+        end
+    end
+    _fail_option(st.res, "unknown-option", "unknown option '--" + name + "'", name)
+end
+
+func _handle_short(p: model.Program, st &: ParseState):
+    arg := st.args.get(st.i)
+    body := arg.substr(1, arg.len() - 1)
+    mut at := 0
+    until at < body.len():
+        ch := body.substr(at, 1)
+        if ch == "h" and p.help_flag:
+            st.res.help_wanted = true
+            st.res.ok = true
+            ret
+        end
+        mut spec := model.OptionSpec {}
+        if not model.LookupShort(p, st.cmd, ch, spec):
+            if arg.len() == 2:
+                _fail_option(st.res, "unknown-option", "unknown option '-" + ch + "'", ch)
+            else:
+                _fail_option(st.res, "unknown-option", "unknown option '-" + ch + "' in '" + arg + "'", ch)
+            end
+            ret
+        end
+        if spec.kind == ArgKindFlag or spec.kind == ArgKindBool or spec.kind == ArgKindCount:
+            _set_option(st.res, spec, "true")
+            at += 1
+        else:
+            mut rest := body.substr(at + 1, body.len() - at - 1)
+            if rest.len() > 0:
+                if rest.substr(0, 1) == "=":
+                    rest = rest.substr(1, rest.len() - 1)
+                end
+                _set_option(st.res, spec, rest)
+                ret
+            end
+            _take_value(st, spec, "-" + ch)
+            ret
+        end
+    end
+end
+
+func _handle_bare(p: model.Program, st &: ParseState):
+    text := st.args.get(st.i)
+    if st.cmd == "" and p.commands.len() > 0:
+        ci := model.FindCommand(p, text)
+        if ci >= 0:
+            st.cmd = text
+            st.res.command = text
+            st.arg_index = 0
+            st.arg_count = 0
+            repeat p.commands.get(ci).options.len() in j:
+                spec := p.commands.get(ci).options.get(j)
+                if _find_value(st.res, spec.name) < 0:
+                    _add_default(st.res, spec)
+                end
+            end
+            ret
+        end
+        if p.args.len() == 0:
+            if p.allow_extras:
+                st.res.extras.push(text)
+                ret
+            end
+            _fail(st.res, "unknown-command", "unknown command '" + text + "'")
+            ret
+        end
+    end
+    args := model.CommandArgs(p, st.cmd)
+    if st.arg_index >= args.len():
+        if p.allow_extras:
+            st.res.extras.push(text)
+            ret
+        end
+        _fail(st.res, "unexpected-argument", "unexpected argument '" + text + "'")
+        ret
+    end
+    spec := args.get(st.arg_index)
+    _add_positional_value(st.res, spec, text)
+    st.arg_count += 1
+    if spec.many == false:
+        st.arg_index += 1
+        st.arg_count = 0
+    else:
+        if spec.max_count > 0 and st.arg_count >= spec.max_count:
+            st.arg_index += 1
+            st.arg_count = 0
+        end
+    end
+end
+
+func _parse_loop(p: model.Program, st &: ParseState):
+    until st.i < st.args.len():
+        arg := st.args.get(st.i)
+        if st.only_pos:
+            _handle_bare(p, st)
+        else:
+            if arg == "--":
+                st.only_pos = true
+            else:
+                if str.StartsWith(arg, "--"):
+                    _handle_long(p, st)
+                else:
+                    if valu.IsOptionToken(arg):
+                        _handle_short(p, st)
+                    else:
+                        _handle_bare(p, st)
+                    end
+                end
+            end
+        end
+        if not st.res.ok and st.res.help_wanted == false and st.res.version_wanted == false:
+            ret
+        end
+        if st.res.help_wanted or st.res.version_wanted:
+            ret
+        end
+        st.i += 1
+    end
+end
+
+pub func All(p: model.Program, args: Vector<str>): Result:
+    mut res := model.Result {}
+    res.prog = p.prog
+    if p.def_error != "":
+        _fail(res, "definition", p.def_error)
+        ret res
+    end
+    res = _init_result(p, "")
+    mut st := ParseState { args = args }
+    st.res = res
+    st.res.ok = true
+    _parse_loop(p, st)
+    if st.res.help_wanted or st.res.version_wanted:
+        st.res.ok = true
+        ret st.res
+    end
+    if not st.res.ok:
+        ret st.res
+    end
+    _validate(p, st.res, st.cmd)
+    ret st.res
+end

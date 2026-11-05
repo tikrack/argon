@@ -1,0 +1,99 @@
+package argon_complete
+
+import str
+
+include model "model.salam"
+
+func _sanitize(text: str): str:
+    mut out := ""
+    repeat text.len() in i:
+        c := text.substr(i, 1)
+        code := char_code(c)
+        if (code >= 48 and code <= 57) or (code >= 65 and code <= 90) or (code >= 97 and code <= 122):
+            out = out + c
+        else:
+            out = out + "_"
+        end
+    end
+    ret out
+end
+
+func _completion_words(p: model.Program, cmd: str): str:
+    mut words := Vector {} as Vector<str>
+    if cmd == "":
+        repeat p.commands.len() in i:
+            if not p.commands.get(i).hidden:
+                words.push(p.commands.get(i).name)
+            end
+        end
+    end
+    if cmd != "":
+        repeat p.options.len() in i:
+            o := p.options.get(i)
+            if not o.hidden:
+                words.push("--" + o.name)
+                if o.negatable:
+                    words.push("--no-" + o.name)
+                end
+                if o.short != "":
+                    words.push("-" + o.short)
+                end
+            end
+        end
+    end
+    opts := model.CommandOptions(p, cmd)
+    repeat opts.len() in i:
+        o := opts.get(i)
+        if not o.hidden:
+            words.push("--" + o.name)
+            if o.negatable:
+                words.push("--no-" + o.name)
+            end
+            if o.short != "":
+                words.push("-" + o.short)
+            end
+        end
+    end
+    if p.help_flag:
+        words.push("--help")
+        words.push("-h")
+    end
+    if cmd == "" and p.version != "": words.push("--version") end
+    ret str.Join(words, " ")
+end
+
+pub func Script(p: model.Program, shell: str): str:
+    fn := "_" + _sanitize(p.prog)
+    if shell == "bash":
+        mut out := "# bash completion for " + p.prog + "\n"
+        out = out + fn + "() {\n"
+        out = out + "    local cur cmd opts\n"
+        out = out + "    cur=\"${COMP_WORDS[COMP_CWORD]}\"\n"
+        out = out + "    cmd=\"\"\n"
+        out = out + "    if [ \"$COMP_CWORD\" -gt 1 ]; then cmd=\"${COMP_WORDS[1]}\"; fi\n"
+        out = out + "    case \"$cmd\" in\n"
+        repeat p.commands.len() in i:
+            c := p.commands.get(i)
+            if not c.hidden:
+                out = out + "        " + c.name + ") opts=\"" + _completion_words(p, c.name) + "\" ;;\n"
+            end
+        end
+        out = out + "        *) opts=\"" + _completion_words(p, "") + "\" ;;\n"
+        out = out + "    esac\n"
+        out = out + "    COMPREPLY=( $(compgen -W \"$opts\" -- \"$cur\") )\n"
+        out = out + "}\n"
+        out = out + "complete -F " + fn + " " + p.prog + "\n"
+        ret out
+    end
+    if shell == "zsh":
+        mut out := "#compdef " + p.prog + "\n"
+        out = out + fn + "() {\n"
+        out = out + "    local -a words\n"
+        out = out + "    words=(" + _completion_words(p, "") + ")\n"
+        out = out + "    compadd -- $words\n"
+        out = out + "}\n"
+        out = out + "compdef " + fn + " " + p.prog + "\n"
+        ret out
+    end
+    ret ""
+end
