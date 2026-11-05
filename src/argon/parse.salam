@@ -5,6 +5,7 @@ import conv
 
 include model "spec.salam"
 include result "result.salam"
+include check "check.salam"
 include valu "values.salam"
 
 const ArgKindFlag := 0
@@ -26,13 +27,6 @@ struct ParseState:
     pub cmd: str = ""
     pub arg_index: int = 0
     pub arg_count: int = 0
-end
-
-func _find_option(options: Vector<OptionSpec>, name: str): int:
-    repeat options.len() in i:
-        if options.get(i).name == name: ret i end
-    end
-    ret 0 - 1
 end
 
 func _find_value(res &: Result, name: str): int:
@@ -125,134 +119,6 @@ func _value_allowed_as_next(text: str, kind: int): bool:
         if valu.ParseFloat(text, x): ret true end
     end
     ret text == "-"
-end
-
-func _validate_option(res &: Result, spec: OptionSpec):
-    i := _find_value(res, spec.name)
-    if spec.required and (i < 0 or res.values.get(i).count == 0):
-        _fail_option(res, "missing-required", "missing required option '--" + spec.name + "'", spec.name)
-        ret
-    end
-    if i < 0: ret end
-    v := res.values.get(i)
-    if spec.repeatable == false and spec.kind != ArgKindFlag and spec.kind != ArgKindBool and spec.kind != ArgKindCount and v.count > 1:
-        _fail_option(res, "duplicate-option", "option '--" + spec.name + "' can be given only once", spec.name)
-        ret
-    end
-    if v.count == 0: ret end
-    if spec.kind == ArgKindCount:
-        ret
-    end
-    mut at := 0
-    until at < v.values.len():
-        text := v.values.get(at)
-        if spec.kind == ArgKindInt:
-            mut n := 0 as i64
-            if not valu.ParseInt(text, n):
-                _fail_option(res, "invalid-value", "invalid int value for '--" + spec.name + "': '" + text + "'", spec.name)
-                ret
-            end
-            if spec.has_min and (n as f64) < spec.min_value:
-                _fail_option(res, "out-of-range", "value '" + text + "' for '--" + spec.name + "' is below the minimum " + conv.FormatFloat(spec.min_value), spec.name)
-                ret
-            end
-            if spec.has_max and (n as f64) > spec.max_value:
-                _fail_option(res, "out-of-range", "value '" + text + "' for '--" + spec.name + "' is above the maximum " + conv.FormatFloat(spec.max_value), spec.name)
-                ret
-            end
-        else spec.kind == ArgKindFloat:
-            mut x := 0.0
-            if not valu.ParseFloat(text, x):
-                _fail_option(res, "invalid-value", "invalid float value for '--" + spec.name + "': '" + text + "'", spec.name)
-                ret
-            end
-            if spec.has_min and x < spec.min_value:
-                _fail_option(res, "out-of-range", "value '" + text + "' for '--" + spec.name + "' is below the minimum " + conv.FormatFloat(spec.min_value), spec.name)
-                ret
-            end
-            if spec.has_max and x > spec.max_value:
-                _fail_option(res, "out-of-range", "value '" + text + "' for '--" + spec.name + "' is above the maximum " + conv.FormatFloat(spec.max_value), spec.name)
-                ret
-            end
-        else spec.kind == ArgKindBool:
-            mut b := false
-            if not valu.ParseBool(text, b):
-                _fail_option(res, "invalid-value", "invalid bool value for '--" + spec.name + "': '" + text + "'", spec.name)
-                ret
-            end
-        else:
-            if spec.has_min_len and text.char_count() < spec.min_len:
-                _fail_option(res, "too-short", "value for '--" + spec.name + "' must have at least " + conv.FormatInt(spec.min_len as i64) + " characters", spec.name)
-                ret
-            end
-            if spec.has_max_len and text.char_count() > spec.max_len:
-                _fail_option(res, "too-long", "value for '--" + spec.name + "' must have at most " + conv.FormatInt(spec.max_len as i64) + " characters", spec.name)
-                ret
-            end
-            if spec.allowed.len() > 0:
-                mut ok := false
-                repeat spec.allowed.len() in k:
-                    if spec.allowed.get(k) == text:
-                        ok = true
-                    end
-                end
-                if not ok:
-                    _fail_option(res, "not-allowed", "invalid value '" + text + "' for '--" + spec.name + "' (allowed: " + str.Join(spec.allowed, ", ") + ")", spec.name)
-                    ret
-                end
-            end
-        end
-        at += 1
-    end
-end
-
-func _validate_argument(res &: Result, spec: ArgumentSpec):
-    i := _find_value(res, spec.name)
-    mut count := 0
-    if i >= 0: count = res.values.get(i).count end
-    if count < spec.min_count:
-        if spec.many:
-            mut unit := "values"
-            if spec.min_count == 1: unit = "value" end
-            _fail_option(res, "missing-argument", "argument '<" + spec.name + ">' needs at least " + conv.FormatInt(spec.min_count as i64) + " " + unit, spec.name)
-        else:
-            _fail_option(res, "missing-argument", "missing required argument '<" + spec.name + ">'", spec.name)
-        end
-        ret
-    end
-    if spec.max_count > 0 and count > spec.max_count:
-        _fail_option(res, "too-many-arguments", "argument '<" + spec.name + ">' accepts at most " + conv.FormatInt(spec.max_count as i64) + " values", spec.name)
-    end
-end
-
-func _validate(p: model.Program, res &: Result, cmd: str):
-    repeat p.options.len() in i:
-        spec := p.options.get(i)
-        mut skip := false
-        if cmd != "":
-            ci := model.FindCommand(p, cmd)
-            if ci >= 0 and _find_option(p.commands.get(ci).options, spec.name) >= 0:
-                skip = true
-            end
-        end
-        if not skip:
-            _validate_option(res, spec)
-            if not res.ok: ret end
-        end
-    end
-    if cmd != "":
-        ci := model.FindCommand(p, cmd)
-        if ci >= 0:
-            repeat p.commands.get(ci).options.len() in j:
-                _validate_option(res, p.commands.get(ci).options.get(j))
-                if not res.ok: ret end
-            end
-        end
-    end
-    repeat model.CommandArgs(p, cmd).len() in k:
-        _validate_argument(res, model.CommandArgs(p, cmd).get(k))
-        if not res.ok: ret end
-    end
 end
 
 func _set_long_value(st &: ParseState, spec: OptionSpec, text: str):
@@ -489,6 +355,6 @@ pub func All(p: model.Program, args: Vector<str>): Result:
     if not st.res.ok:
         ret st.res
     end
-    _validate(p, st.res, st.cmd)
+    check.Check(p, st.res, st.cmd)
     ret st.res
 end
