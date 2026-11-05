@@ -6,3 +6,5 @@
 build/
 dist/
 .salam-cache/
+
+.salam-build/

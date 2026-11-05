@@ -1,0 +1,52 @@
+// lang: en
+package main
+
+include argon "../src/argon.salam"
+
+func main:
+    mut p := argon.New("project", "A project tool with subcommands")
+    p.Flag("verbose", "v", "Print more details")
+    defer p.Free()
+
+    init := argon.NewCommand("init", "Create a new project")
+    init.StrOption("name", "n", "Project name", "app")
+    p.AddCommand(init)
+
+    build := argon.NewCommand("build", "Build the project")
+    build.Flag("release", "r", "Build with optimizations")
+    mut target := argon.NewStrOption("target", "t", "Build target", "native")
+    target.OneOf("native")
+    target.OneOf("wasm")
+    build.AddOption(target)
+    p.AddCommand(build)
+
+    clean := argon.NewCommand("clean", "Remove build output")
+    clean.Flag("all", "a", "Also remove cached files")
+    p.AddCommand(clean)
+
+    res := p.ParseProcess()
+    defer res.Free()
+
+    if res.HelpWanted():
+        print p.HelpFor(res.Command())
+        ret argon.ArgExitOK
+    end
+    if not res.Ok():
+        printerrln res.Error()
+        ret res.ExitCode()
+    end
+
+    if res.Command() == "":
+        print p.Help()
+        ret argon.ArgExitOK
+    end
+    if res.Command() == "init":
+        println "init project:", res.Str("name")
+    else res.Command() == "build":
+        println "build target:", res.Str("target")
+        println "release:", res.Bool("release")
+    else:
+        println "clean all:", res.Bool("all")
+    end
+    ret argon.ArgExitOK
+end

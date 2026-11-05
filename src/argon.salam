@@ -20,6 +20,16 @@ pub const ArgColorNever := 2
 pub const ArgExitOK := 0
 pub const ArgExitUsage := 2
 
+struct ParseState:
+    pub args: Vector<str> = Vector {}
+    pub res: Result = Result {}
+    pub i: int = 0
+    pub only_pos: bool = false
+    pub cmd: str = ""
+    pub arg_index: int = 0
+    pub arg_count: int = 0
+end
+
 pub struct OptionSpec:
     pub name: str = ""
     pub short: str = ""
@@ -403,85 +413,48 @@ pub struct Result:
     end
 end
 
-struct ParseState:
-    pub args: Vector<str> = Vector {}
-    pub res: Result = Result {}
-    pub i: int = 0
-    pub only_pos: bool = false
-    pub cmd: str = ""
-    pub arg_index: int = 0
-    pub arg_count: int = 0
-end
-
 func _flag_spec(name: str, short: str, help: str): OptionSpec:
     ret OptionSpec { name = name, short = short, help = help, kind = ArgKindFlag }
 end
 
 func _negatable_spec(name: str, short: str, help: str, default_on: bool): OptionSpec:
     ret OptionSpec {
-        name = name,
-        short = short,
-        help = help,
-        kind = ArgKindBool,
-        negatable = true,
-        has_default = true,
+        name = name, short = short, help = help, kind = ArgKindBool, negatable = true, has_default = true,
         default_value = default_on ? "true" : "false"
     }
 end
 
 func _count_spec(name: str, short: str, help: str): OptionSpec:
     ret OptionSpec {
-        name = name,
-        short = short,
-        help = help,
-        kind = ArgKindCount,
-        repeatable = true,
-        has_default = true,
-        default_value = "0"
+        name = name, short = short, help = help, kind = ArgKindCount, repeatable = true,
+        has_default = true, default_value = "0"
     }
 end
 
 func _str_spec(name: str, short: str, help: str, default_value: str): OptionSpec:
     ret OptionSpec {
-        name = name,
-        short = short,
-        help = help,
-        kind = ArgKindStr,
-        has_default = true,
+        name = name, short = short, help = help, kind = ArgKindStr, has_default = true,
         default_value = default_value
     }
 end
 
 func _int_spec(name: str, short: str, help: str, default_value: i64): OptionSpec:
     ret OptionSpec {
-        name = name,
-        short = short,
-        help = help,
-        kind = ArgKindInt,
-        has_default = true,
+        name = name, short = short, help = help, kind = ArgKindInt, has_default = true,
         default_value = conv.FormatInt(default_value)
     }
 end
 
 func _float_spec(name: str, short: str, help: str, default_value: f64): OptionSpec:
     ret OptionSpec {
-        name = name,
-        short = short,
-        help = help,
-        kind = ArgKindFloat,
-        has_default = true,
+        name = name, short = short, help = help, kind = ArgKindFloat, has_default = true,
         default_value = conv.FormatFloat(default_value)
     }
 end
 
 func _bool_spec(name: str, short: str, help: str, default_value: bool): OptionSpec:
     ret OptionSpec {
-        name = name,
-        short = short,
-        help = help,
-        kind = ArgKindBool,
-        negatable = true,
-        has_default = true,
+        name = name, short = short, help = help, kind = ArgKindBool, negatable = true, has_default = true,
         default_value = default_value ? "true" : "false"
     }
 end
@@ -492,11 +465,7 @@ end
 
 func _argument_spec(name: str, help: str, required: bool, many: bool, min_count: int, max_count: int): ArgumentSpec:
     ret ArgumentSpec {
-        name = name,
-        help = help,
-        required = required,
-        many = many,
-        min_count = min_count,
+        name = name, help = help, required = required, many = many, min_count = min_count,
         max_count = max_count
     }
 end
@@ -1121,7 +1090,7 @@ func _handle_long(p &: Parser, st &: ParseState):
         ret
     end
     mut spec := OptionSpec {}
-    if _lookup_option(p, st.cmd, name, spec): 
+    if _lookup_option(p, st.cmd, name, spec):
         if spec.kind == ArgKindFlag or spec.kind == ArgKindBool:
             if has_inline:
                 _set_long_value(st, spec, inline_value)

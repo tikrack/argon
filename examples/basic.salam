@@ -1,0 +1,37 @@
+// lang: en
+package main
+
+include argon "../src/argon.salam"
+
+func main:
+    mut p := argon.New("greet", "Print a greeting")
+    p.Flag("formal", "f", "Use a formal greeting")
+    p.Flag("shout", "s", "Print the greeting in uppercase")
+    p.Positional("name", "Name to greet")
+    defer p.Free()
+
+    res := p.ParseProcess()
+    defer res.Free()
+
+    if res.HelpWanted():
+        print p.Help()
+        ret argon.ArgExitOK
+    end
+    if not res.Ok():
+        printerrln res.Error()
+        ret res.ExitCode()
+    end
+
+    name := res.Str("name")
+    mut greeting := ""
+    if res.Bool("formal"):
+        greeting = "Good day, " + name + "."
+    else:
+        greeting = "Hello, " + name + "!"
+    end
+    if res.Bool("shout"):
+        greeting = greeting.upper()
+    end
+    println greeting
+    ret argon.ArgExitOK
+end

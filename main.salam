@@ -1,0 +1,69 @@
+// lang: en
+package main
+
+include argon "src/argon.salam"
+
+func main:
+    mut p := argon.New("argon-demo", "A small command line application built with Argon")
+    p.SetVersion("1.0.0")
+    p.Flag("verbose", "v", "Print extra details")
+    p.StrOption("output", "o", "Output file", "build.txt")
+    p.CountFlag("debug", "d", "Increase the debug level")
+    defer p.Free()
+
+    build := argon.NewCommand("build", "Build the project")
+    build.Flag("release", "r", "Build with optimizations")
+    build.StrOption("target", "t", "Build target", "native")
+    build.Positional("name", "Project name")
+    p.AddCommand(build)
+
+    serve := argon.NewCommand("serve", "Serve the built project")
+    mut port := argon.NewIntOption("port", "p", "Port to listen on", 8080)
+    port.Range(1, 65535)
+    serve.AddOption(port)
+    p.AddCommand(serve)
+
+    config := argon.NewCommand("config", "Inspect or change configuration")
+    mut format := argon.NewStrOption("format", "f", "Output format", "text")
+    format.OneOf("text")
+    format.OneOf("json")
+    config.AddOption(format)
+    p.AddCommand(config)
+
+    res := p.ParseProcess()
+    defer res.Free()
+
+    if res.HelpWanted():
+        print p.HelpFor(res.Command())
+        ret argon.ArgExitOK
+    end
+    if res.VersionWanted():
+        println p.VersionLine()
+        ret argon.ArgExitOK
+    end
+    if not res.Ok():
+        printerrln res.Error()
+        ret res.ExitCode()
+    end
+
+    cmd := res.Command()
+    if cmd == "":
+        print p.Help()
+        ret argon.ArgExitOK
+    end
+    if cmd == "build":
+        println "building", res.Str("name")
+        println "target:", res.Str("target")
+        println "release:", res.Bool("release")
+    else cmd == "serve":
+        println "serving on port", res.Int("port")
+    else:
+        println "config format:", res.Str("format")
+    end
+
+    println "output:", res.Str("output")
+    println "verbose:", res.Bool("verbose")
+    println "debug level:", res.Int("debug")
+    println "files written: 0"
+    ret argon.ArgExitOK
+end

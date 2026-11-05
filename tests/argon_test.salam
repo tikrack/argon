@@ -1,0 +1,759 @@
+// lang: en
+package main
+
+import str
+import conv
+import testing
+
+include argon "../src/argon.salam"
+
+func empty(): Vector<str>:
+    ret Vector {}
+end
+
+func one(text: str): Vector<str>:
+    mut v := Vector {} as Vector<str>
+    v.push(text)
+    ret v
+end
+
+func two(a: str, b: str): Vector<str>:
+    mut v := Vector {} as Vector<str>
+    v.push(a)
+    v.push(b)
+    ret v
+end
+
+func parse_words(p &: argon.Parser, text: str): argon.Result:
+    ret p.Parse(str.Fields(text))
+end
+
+func check(label: str, cond: bool):
+    testing.AssertMsg(cond, label)
+end
+
+func eq_str(label: str, got: str, want: str):
+    testing.AssertMsg(got == want, label + ": got '" + got + "' want '" + want + "'")
+end
+
+func eq_int(label: str, got: i64, want: i64):
+    testing.AssertMsg(got == want, label + ": got " + conv.FormatInt(got) + " want " + conv.FormatInt(want))
+end
+
+func eq_float(label: str, got: f64, want: f64):
+    testing.AssertMsg(got == want, label + ": got " + conv.FormatFloat(got) + " want " + conv.FormatFloat(want))
+end
+
+func eq_bool(label: str, got: bool, want: bool):
+    testing.AssertMsg(got == want, label + ": bool values differ")
+end
+
+func contains(label: str, hay: str, needle: str):
+    testing.AssertMsg(hay.find(needle) >= 0, label + ": missing '" + needle + "'")
+end
+
+func test_flags():
+    mut p := argon.New("app", "")
+    defer p.Free()
+    p.Flag("verbose", "v", "Verbose")
+    p.Flag("quiet", "q", "Quiet")
+
+    r := parse_words(p, "--verbose")
+    defer r.Free()
+    check("flag long ok", r.Ok())
+    eq_bool("flag long value", r.Bool("verbose"), true)
+    eq_bool("flag absent", r.Bool("quiet"), false)
+    eq_bool("flag isset", r.IsSet("verbose"), true)
+    eq_bool("flag not isset", r.IsSet("quiet"), false)
+
+    r2 := parse_words(p, "-q")
+    defer r2.Free()
+    check("flag short ok", r2.Ok())
+    eq_bool("flag short value", r2.Bool("quiet"), true)
+    eq_bool("flag short other", r2.Bool("verbose"), false)
+end
+
+func test_option_forms():
+    mut p := argon.New("app", "")
+    defer p.Free()
+    p.StrOption("output", "o", "Output", "")
+
+    a := parse_words(p, "--output=build.txt")
+    defer a.Free()
+    eq_str("option equals", a.Str("output"), "build.txt")
+
+    b := parse_words(p, "--output build.txt")
+    defer b.Free()
+    eq_str("option space", b.Str("output"), "build.txt")
+
+    c := parse_words(p, "-o build.txt")
+    defer c.Free()
+    eq_str("option short space", c.Str("output"), "build.txt")
+
+    d := parse_words(p, "-obuild.txt")
+    defer d.Free()
+    eq_str("option short attached", d.Str("output"), "build.txt")
+
+    e := parse_words(p, "-o=build.txt")
+    defer e.Free()
+    eq_str("option short equals", e.Str("output"), "build.txt")
+end
+
+func test_defaults():
+    mut p := argon.New("app", "")
+    defer p.Free()
+    p.StrOption("output", "o", "Output", "out.txt")
+    p.IntOption("count", "c", "Count", 3)
+    p.BoolOption("color", "", "Color", true)
+
+    r := p.Parse(empty())
+    defer r.Free()
+    check("defaults ok", r.Ok())
+    eq_str("default string", r.Str("output"), "out.txt")
+    eq_int("default int", r.Int("count"), 3)
+    eq_bool("default bool", r.Bool("color"), true)
+    eq_bool("default is not set", r.IsSet("output"), false)
+
+    r2 := parse_words(p, "--output=x --count=4 --color=false")
+    defer r2.Free()
+    eq_str("override string", r2.Str("output"), "x")
+    eq_int("override int", r2.Int("count"), 4)
+    eq_bool("override bool", r2.Bool("color"), false)
+    eq_bool("override is set", r2.IsSet("output"), true)
+end
+
+func test_types():
+    mut p := argon.New("app", "")
+    defer p.Free()
+    p.IntOption("count", "c", "Count", 0)
+    p.FloatOption("ratio", "r", "Ratio", 0.0)
+    p.BoolOption("dry", "", "Dry", false)
+    p.CountFlag("verbose", "v", "Verbose")
+
+    r := parse_words(p, "--count=42 --ratio=1.5 --dry=true -vv")
+    defer r.Free()
+    check("types ok", r.Ok())
+    eq_int("int type", r.Int("count"), 42)
+    eq_float("float type", r.Float("ratio"), 1.5)
+    eq_bool("bool type", r.Bool("dry"), true)
+    eq_int("count flag value", r.Int("verbose"), 2)
+    eq_int("count flag num", r.Num("verbose"), 2)
+
+    a := parse_words(p, "--count=abc")
+    defer a.Free()
+    eq_str("invalid int kind", a.ErrorKind(), "invalid-value")
+    contains("invalid int message", a.ErrorMessage(), "invalid int")
+
+    b := parse_words(p, "--ratio=1.2.3")
+    defer b.Free()
+    eq_str("invalid float kind", b.ErrorKind(), "invalid-value")
+
+    c := parse_words(p, "--dry=maybe")
+    defer c.Free()
+    eq_str("invalid bool kind", c.ErrorKind(), "invalid-value")
+
+    d := parse_words(p, "--count=9223372036854775808")
+    defer d.Free()
+    eq_str("int overflow", d.ErrorKind(), "invalid-value")
+
+    e := parse_words(p, "--count=-9223372036854775808")
+    defer e.Free()
+    check("int minimum ok", e.Ok())
+    eq_int("int minimum", e.Int("count"), (0 - 9223372036854775807) - 1)
+end
+
+func test_positionals():
+    mut p := argon.New("app", "")
+    defer p.Free()
+    p.Positional("input", "Input")
+    p.OptionalPositional("target", "Target")
+    p.RestPositional("files", "Files", 0)
+
+    r := parse_words(p, "a b c d")
+    defer r.Free()
+    check("positionals ok", r.Ok())
+    eq_str("first positional", r.Str("input"), "a")
+    eq_str("second positional", r.Str("target"), "b")
+    eq_int("rest count", r.ValueCount("files"), 2)
+    eq_str("rest first", r.ValueAt("files", 0), "c")
+    eq_str("rest second", r.ValueAt("files", 1), "d")
+
+    r2 := parse_words(p, "a")
+    defer r2.Free()
+    eq_str("optional missing", r2.Str("target"), "")
+    eq_int("rest empty", r2.ValueCount("files"), 0)
+
+    r3 := p.Parse(empty())
+    defer r3.Free()
+    eq_str("missing positional", r3.ErrorKind(), "missing-argument")
+end
+
+func test_required():
+    mut p := argon.New("app", "")
+    defer p.Free()
+    mut name := argon.NewStrOption("name", "n", "Name", "")
+    name.Require()
+    p.AddOption(name)
+    p.Positional("file", "File")
+
+    r := parse_words(p, "--name bob f")
+    defer r.Free()
+    check("required satisfied", r.Ok())
+
+    r2 := parse_words(p, "f")
+    defer r2.Free()
+    eq_str("required option missing", r2.ErrorKind(), "missing-required")
+    contains("required option message", r2.ErrorMessage(), "--name")
+
+    r3 := parse_words(p, "--name bob")
+    defer r3.Free()
+    eq_str("required argument missing", r3.ErrorKind(), "missing-argument")
+end
+
+func test_unknown():
+    mut p := argon.New("app", "")
+    defer p.Free()
+    p.Flag("verbose", "v", "Verbose")
+
+    r := parse_words(p, "--nope")
+    defer r.Free()
+    eq_str("unknown long", r.ErrorKind(), "unknown-option")
+    contains("unknown long message", r.ErrorMessage(), "--nope")
+
+    r2 := parse_words(p, "-x")
+    defer r2.Free()
+    eq_str("unknown short", r2.ErrorKind(), "unknown-option")
+
+    mut q := argon.New("app", "")
+    defer q.Free()
+    q.SetColor(argon.ArgColorNever)
+    q.AddCommand(argon.NewCommand("build", "Build"))
+    r3 := parse_words(q, "nope")
+    defer r3.Free()
+    eq_str("unknown command", r3.ErrorKind(), "unknown-command")
+end
+
+func test_invalid_values():
+    mut p := argon.New("app", "")
+    defer p.Free()
+    p.IntOption("count", "c", "Count", 0)
+    p.StrOption("output", "o", "Output", "")
+    p.Flag("verbose", "v", "Verbose")
+
+    r := parse_words(p, "--count nope")
+    defer r.Free()
+    eq_str("bad int", r.ErrorKind(), "invalid-value")
+
+    r2 := parse_words(p, "--output")
+    defer r2.Free()
+    eq_str("missing value", r2.ErrorKind(), "missing-value")
+
+    r3 := parse_words(p, "--output --verbose")
+    defer r3.Free()
+    eq_str("missing before option", r3.ErrorKind(), "missing-value")
+    contains("missing value hint", r3.ErrorMessage(), "=")
+
+    r4 := parse_words(p, "--output -x")
+    defer r4.Free()
+    eq_str("missing before dash value", r4.ErrorKind(), "missing-value")
+end
+
+func test_help():
+    mut p := argon.New("app", "An example application")
+    p.SetVersion("1.2.3")
+    p.SetColor(argon.ArgColorNever)
+    defer p.Free()
+    p.Flag("verbose", "v", "Verbose")
+    p.StrOption("output", "o", "Output file", "out.txt")
+    p.Positional("input", "Input file")
+    build := argon.NewCommand("build", "Build the project")
+    build.Positional("target", "Build target")
+    p.AddCommand(build)
+
+    h := p.Help()
+    contains("help title", h, "app 1.2.3")
+    contains("help description", h, "An example application")
+    contains("help usage", h, "Usage:")
+    contains("help commands", h, "Commands:")
+    contains("help command name", h, "build")
+    contains("help option", h, "--output")
+    contains("help default", h, "(default: out.txt)")
+    contains("help help flag", h, "-h, --help")
+    contains("help version", h, "--version")
+    contains("help argument", h, "<input>")
+
+    ch := p.HelpFor("build")
+    contains("command help usage", ch, "app build")
+    contains("command help argument", ch, "<target>")
+    contains("command help global", ch, "Global options")
+
+    r := parse_words(p, "--help")
+    defer r.Free()
+    check("help ok", r.Ok())
+    check("help wanted", r.HelpWanted())
+    eq_int("help exit", r.ExitCode() as i64, 0)
+
+    r2 := parse_words(p, "build --help")
+    defer r2.Free()
+    eq_str("command help command", r2.Command(), "build")
+    check("command help wanted", r2.HelpWanted())
+
+    r3 := parse_words(p, "--version")
+    defer r3.Free()
+    check("version wanted", r3.VersionWanted())
+    check("version ok", r3.Ok())
+    eq_int("version exit", r3.ExitCode() as i64, 0)
+    eq_str("version line", p.VersionLine(), "app 1.2.3")
+
+    eq_int("command count", p.CommandCount() as i64, 1)
+    eq_str("command name", p.CommandName(0), "build")
+    eq_str("command help", p.CommandHelp(0), "Build the project")
+    eq_str("command name out of range", p.CommandName(9), "")
+    eq_str("unknown command help", p.HelpFor("nope"), "")
+    eq_str("unknown command usage", p.UsageFor("nope"), "")
+
+    contains("root usage", p.Usage(), "Usage:")
+    contains("command usage", p.UsageFor("build"), "app build")
+end
+
+func test_subcommands():
+    mut p := argon.New("project", "Project tool")
+    p.SetColor(argon.ArgColorNever)
+    defer p.Free()
+    p.Flag("verbose", "v", "Verbose")
+    build := argon.NewCommand("build", "Build the project")
+    build.Flag("release", "r", "Release")
+    build.Positional("target", "Target")
+    p.AddCommand(build)
+    serve := argon.NewCommand("serve", "Serve the project")
+    mut port := argon.NewIntOption("port", "p", "Port", 8080)
+    port.Range(1, 65535)
+    serve.AddOption(port)
+    p.AddCommand(serve)
+
+    r := parse_words(p, "build --release app")
+    defer r.Free()
+    check("subcommand ok", r.Ok())
+    eq_str("subcommand name", r.Command(), "build")
+    eq_bool("subcommand flag", r.Bool("release"), true)
+    eq_str("subcommand arg", r.Str("target"), "app")
+
+    r2 := parse_words(p, "serve -p 9000")
+    defer r2.Free()
+    check("serve ok", r2.Ok())
+    eq_int("serve port", r2.Int("port"), 9000)
+
+    r3 := parse_words(p, "build --verbose app")
+    defer r3.Free()
+    check("global after command", r3.Ok())
+    eq_bool("global after command value", r3.Bool("verbose"), true)
+
+    r4 := parse_words(p, "build")
+    defer r4.Free()
+    eq_str("command argument missing", r4.ErrorKind(), "missing-argument")
+
+    r5 := parse_words(p, "nope")
+    defer r5.Free()
+    eq_str("command unknown", r5.ErrorKind(), "unknown-command")
+end
+
+func test_empty_input():
+    mut p := argon.New("app", "")
+    defer p.Free()
+    p.Flag("verbose", "v", "Verbose")
+
+    r := p.Parse(empty())
+    defer r.Free()
+    check("empty ok", r.Ok())
+    eq_bool("empty flag", r.Bool("verbose"), false)
+
+    mut q := argon.New("app", "")
+    defer q.Free()
+    q.Positional("input", "Input")
+    r2 := q.Parse(empty())
+    defer r2.Free()
+    eq_str("empty missing argument", r2.ErrorKind(), "missing-argument")
+end
+
+func test_duplicates():
+    mut p := argon.New("app", "")
+    defer p.Free()
+    p.StrOption("output", "o", "Output", "")
+    p.Flag("verbose", "v", "Verbose")
+    p.CountFlag("debug", "d", "Debug")
+    p.MultiOption("include", "I", "Include")
+
+    r := parse_words(p, "--output a --output b")
+    defer r.Free()
+    eq_str("duplicate option", r.ErrorKind(), "duplicate-option")
+
+    r2 := parse_words(p, "--verbose --verbose")
+    defer r2.Free()
+    check("repeated flag ok", r2.Ok())
+    eq_bool("repeated flag value", r2.Bool("verbose"), true)
+
+    r3 := parse_words(p, "-ddd")
+    defer r3.Free()
+    eq_int("repeated count", r3.Int("debug"), 3)
+
+    r4 := parse_words(p, "--include a --include b")
+    defer r4.Free()
+    eq_int("repeated multi count", r4.ValueCount("include"), 2)
+    eq_str("repeated multi value", r4.ValueAt("include", 1), "b")
+end
+
+func test_spaces_and_empty():
+    mut p := argon.New("app", "")
+    defer p.Free()
+    p.StrOption("output", "o", "Output", "")
+    p.OptionalPositional("input", "Input")
+
+    r := p.Parse(two("--output", "a b"))
+    defer r.Free()
+    check("space value ok", r.Ok())
+    eq_str("space value", r.Str("output"), "a b")
+
+    r2 := p.Parse(one(""))
+    defer r2.Free()
+    check("empty positional ok", r2.Ok())
+    eq_str("empty positional value", r2.Str("input"), "")
+    check("empty positional is set", r2.IsSet("input"))
+
+    r3 := parse_words(p, "--output=")
+    defer r3.Free()
+    check("empty inline ok", r3.Ok())
+    eq_str("empty inline value", r3.Str("output"), "")
+    check("empty inline is set", r3.IsSet("output"))
+
+    r4 := p.Parse(two("--output", "  x  "))
+    defer r4.Free()
+    eq_str("spaces preserved", r4.Str("output"), "  x  ")
+end
+
+func test_short_groups():
+    mut p := argon.New("app", "")
+    defer p.Free()
+    p.Flag("all", "a", "All")
+    p.Flag("both", "b", "Both")
+    p.Flag("dry", "d", "Dry")
+    p.IntOption("number", "n", "Number", 0)
+    p.Positional("input", "Input")
+
+    r := parse_words(p, "-abd file")
+    defer r.Free()
+    check("short group ok", r.Ok())
+    eq_bool("short group a", r.Bool("all"), true)
+    eq_bool("short group b", r.Bool("both"), true)
+    eq_bool("short group d", r.Bool("dry"), true)
+
+    r2 := parse_words(p, "-n5")
+    defer r2.Free()
+    eq_int("short attached value", r2.Int("number"), 5)
+
+    r3 := parse_words(p, "-n=5")
+    defer r3.Free()
+    eq_int("short equals value", r3.Int("number"), 5)
+
+    r4 := parse_words(p, "-n -5 file")
+    defer r4.Free()
+    check("negative value ok", r4.Ok())
+    eq_int("negative value", r4.Int("number"), 0 - 5)
+
+    r5 := parse_words(p, "-- -n")
+    defer r5.Free()
+    eq_str("terminator value", r5.Str("input"), "-n")
+
+    r6 := parse_words(p, "-")
+    defer r6.Free()
+    eq_str("single dash", r6.Str("input"), "-")
+end
+
+func test_validation():
+    mut p := argon.New("app", "")
+    defer p.Free()
+    mut mode := argon.NewStrOption("mode", "m", "Mode", "fast")
+    mode.OneOf("fast")
+    mode.OneOf("slow")
+    p.AddOption(mode)
+    mut level := argon.NewIntOption("level", "l", "Level", 0)
+    level.Range(1, 9)
+    p.AddOption(level)
+    mut tag := argon.NewStrOption("tag", "t", "Tag", "")
+    tag.MinLength(3)
+    tag.MaxLength(6)
+    p.AddOption(tag)
+
+    r := parse_words(p, "--mode=other")
+    defer r.Free()
+    eq_str("allowed kind", r.ErrorKind(), "not-allowed")
+    contains("allowed message", r.ErrorMessage(), "fast, slow")
+
+    r2 := parse_words(p, "--level=10")
+    defer r2.Free()
+    eq_str("range high", r2.ErrorKind(), "out-of-range")
+
+    r3 := parse_words(p, "--level=0")
+    defer r3.Free()
+    eq_str("range low", r3.ErrorKind(), "out-of-range")
+
+    r4 := parse_words(p, "--tag=ab")
+    defer r4.Free()
+    eq_str("min length", r4.ErrorKind(), "too-short")
+
+    r5 := parse_words(p, "--tag=abcdefg")
+    defer r5.Free()
+    eq_str("max length", r5.ErrorKind(), "too-long")
+
+    r6 := parse_words(p, "--mode=slow --level=5 --tag=abc")
+    defer r6.Free()
+    check("validation ok", r6.Ok())
+end
+
+func test_negatable_and_bool():
+    mut p := argon.New("app", "")
+    defer p.Free()
+    p.NegatableFlag("color", "", "Color", true)
+    p.BoolOption("dry", "", "Dry", false)
+
+    r := p.Parse(empty())
+    defer r.Free()
+    eq_bool("negatable default", r.Bool("color"), true)
+    eq_bool("bool default", r.Bool("dry"), false)
+
+    r2 := parse_words(p, "--no-color --dry")
+    defer r2.Free()
+    eq_bool("negated flag", r2.Bool("color"), false)
+    eq_bool("bool set", r2.Bool("dry"), true)
+
+    r3 := parse_words(p, "--color=false --no-dry")
+    defer r3.Free()
+    eq_bool("bool explicit false", r3.Bool("color"), false)
+    eq_bool("bool negated", r3.Bool("dry"), false)
+end
+
+func test_count_flag():
+    mut p := argon.New("app", "")
+    defer p.Free()
+    p.CountFlag("verbose", "v", "Verbose")
+
+    r := parse_words(p, "-vvv")
+    defer r.Free()
+    eq_int("count three", r.Int("verbose"), 3)
+    eq_int("count num", r.Num("verbose"), 3)
+    check("count isset", r.IsSet("verbose"))
+
+    r2 := parse_words(p, "--verbose --verbose")
+    defer r2.Free()
+    eq_int("count long", r2.Int("verbose"), 2)
+
+    r3 := p.Parse(empty())
+    defer r3.Free()
+    eq_int("count default", r3.Int("verbose"), 0)
+
+    r4 := parse_words(p, "--verbose=2")
+    defer r4.Free()
+    eq_str("count rejects value", r4.ErrorKind(), "unexpected-value")
+end
+
+func test_multiple_parsers():
+    mut p1 := argon.New("one", "")
+    defer p1.Free()
+    p1.Flag("alpha", "a", "Alpha")
+    mut p2 := argon.New("two", "")
+    defer p2.Free()
+    p2.Flag("beta", "b", "Beta")
+
+    r := parse_words(p1, "--alpha")
+    defer r.Free()
+    check("first parser ok", r.Ok())
+    eq_bool("first parser flag", r.Bool("alpha"), true)
+
+    r2 := parse_words(p1, "--beta")
+    defer r2.Free()
+    eq_str("first parser isolation", r2.ErrorKind(), "unknown-option")
+
+    r3 := parse_words(p2, "--beta")
+    defer r3.Free()
+    check("second parser ok", r3.Ok())
+    eq_bool("second parser flag", r3.Bool("beta"), true)
+end
+
+func test_extras_and_completion():
+    mut p := argon.New("my-app", "Completion")
+    defer p.Free()
+    p.AllowExtras()
+    p.Flag("verbose", "v", "Verbose")
+    p.AddCommand(argon.NewCommand("build", "Build"))
+
+    r := parse_words(p, "x y")
+    defer r.Free()
+    check("extras ok", r.Ok())
+    extra := r.Extras()
+    defer extra.free()
+    eq_int("extras count", extra.len() as i64, 2)
+    eq_str("extras value", extra.get(1), "y")
+
+    b := p.Completion("bash")
+    contains("bash completion program", b, "my-app")
+    contains("bash completion flag", b, "--verbose")
+    contains("bash completion short", b, "-v")
+    contains("bash completion command", b, "build")
+    contains("bash completion help", b, "--help")
+
+    z := p.Completion("zsh")
+    contains("zsh completion", z, "#compdef my-app")
+    contains("zsh words", z, "--verbose")
+
+    eq_str("unknown shell", p.Completion("fish"), "")
+end
+
+func test_error_format():
+    mut p := argon.New("app", "")
+    defer p.Free()
+    p.Flag("verbose", "v", "Verbose")
+
+    r := parse_words(p, "--bad")
+    defer r.Free()
+    check("error not ok", not r.Ok())
+    eq_int("error exit", r.ExitCode() as i64, 2)
+    contains("error prefix", r.Error(), "error:")
+    contains("error hint", r.Error(), "try 'app --help'")
+
+    r2 := parse_words(p, "--help")
+    defer r2.Free()
+    eq_int("help exit", r2.ExitCode() as i64, 0)
+
+    r3 := p.Parse(empty())
+    defer r3.Free()
+    eq_int("success exit", r3.ExitCode() as i64, 0)
+end
+
+func test_definition_errors():
+    mut p := argon.New("app", "")
+    defer p.Free()
+    p.Flag("verbose", "v", "Verbose")
+    p.Flag("verbose", "x", "Duplicate")
+    r := p.Parse(empty())
+    defer r.Free()
+    eq_str("duplicate name definition", r.ErrorKind(), "definition")
+    contains("duplicate name message", r.ErrorMessage(), "duplicate option")
+
+    mut q := argon.New("app", "")
+    defer q.Free()
+    q.Flag("alpha", "a", "Alpha")
+    q.Flag("beta", "a", "Beta")
+    r2 := q.Parse(empty())
+    defer r2.Free()
+    eq_str("duplicate short definition", r2.ErrorKind(), "definition")
+
+    mut s := argon.New("app", "")
+    defer s.Free()
+    s.Flag("global", "g", "Global")
+    cmd := argon.NewCommand("run", "Run")
+    cmd.Flag("global", "x", "Clash")
+    s.AddCommand(cmd)
+    r3 := s.Parse(empty())
+    defer r3.Free()
+    eq_str("global command clash", r3.ErrorKind(), "definition")
+
+    mut t := argon.New("app", "")
+    defer t.Free()
+    t.RestPositional("files", "Files", 0)
+    t.Positional("late", "Late")
+    r4 := t.Parse(empty())
+    defer r4.Free()
+    eq_str("argument after rest", r4.ErrorKind(), "definition")
+end
+
+func test_accessors():
+    mut p := argon.New("app", "")
+    defer p.Free()
+    p.MultiOption("tag", "t", "Tag")
+    p.MultiOption("number", "n", "Number")
+    p.MultiOption("ratio", "r", "Ratio")
+    mut flags := argon.NewOption("flag", "f", "Flag", argon.ArgKindBool)
+    flags.AllowRepeat()
+    p.AddOption(flags)
+
+    r := parse_words(p, "-t a -t b -n 1 -n 2 -r 1.5 -r 2.5 -f -f")
+    defer r.Free()
+    check("accessors ok", r.Ok())
+    eq_int("tag count", r.ValueCount("tag"), 2)
+    eq_str("tag at", r.ValueAt("tag", 1), "b")
+    eq_str("tag out of range", r.ValueAt("tag", 5), "")
+
+    tags := r.Strs("tag")
+    defer tags.free()
+    eq_int("strs len", tags.len() as i64, 2)
+    eq_str("strs value", tags.get(0), "a")
+
+    nums := r.Ints("number")
+    defer nums.free()
+    eq_int("ints len", nums.len() as i64, 2)
+    eq_int("ints value", nums.get(1), 2)
+
+    ratios := r.Floats("ratio")
+    defer ratios.free()
+    eq_float("floats value", ratios.get(0), 1.5)
+
+    bools := r.Bools("flag")
+    defer bools.free()
+    eq_int("bools len", bools.len() as i64, 2)
+    eq_bool("bools value", bools.get(0), true)
+end
+
+func test_hidden_items():
+    mut p := argon.New("app", "")
+    p.SetColor(argon.ArgColorNever)
+    defer p.Free()
+    p.Flag("visible", "v", "Visible")
+    mut secret := argon.NewFlag("secret", "s", "Secret")
+    secret.Hide()
+    p.AddOption(secret)
+    hidden_cmd := argon.NewCommand("internal", "Internal")
+    hidden_cmd.Hide()
+    p.AddCommand(hidden_cmd)
+
+    h := p.Help()
+    check("hidden option absent", h.find("--secret") < 0)
+    check("hidden command absent", h.find("internal") < 0)
+    contains("visible option present", h, "--visible")
+
+    r := parse_words(p, "--secret")
+    defer r.Free()
+    check("hidden option parses", r.Ok())
+    eq_bool("hidden option value", r.Bool("secret"), true)
+
+    r2 := parse_words(p, "internal")
+    defer r2.Free()
+    check("hidden command parses", r2.Ok())
+    eq_str("hidden command name", r2.Command(), "internal")
+end
+
+func main:
+    testing.Reset()
+    test_flags()
+    test_option_forms()
+    test_defaults()
+    test_types()
+    test_positionals()
+    test_required()
+    test_unknown()
+    test_invalid_values()
+    test_help()
+    test_subcommands()
+    test_empty_input()
+    test_duplicates()
+    test_spaces_and_empty()
+    test_short_groups()
+    test_validation()
+    test_negatable_and_bool()
+    test_count_flag()
+    test_multiple_parsers()
+    test_extras_and_completion()
+    test_error_format()
+    test_definition_errors()
+    test_accessors()
+    test_hidden_items()
+    ret testing.Summary()
+end

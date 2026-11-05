@@ -1,0 +1,41 @@
+// lang: en
+package main
+
+include argon "../src/argon.salam"
+
+func main:
+    mut p := argon.New("convert", "Report file conversion settings")
+    p.StrOption("output", "o", "Output file", "out.txt")
+    mut format := argon.NewStrOption("format", "f", "Output format", "text")
+    format.OneOf("text")
+    format.OneOf("json")
+    format.OneOf("csv")
+    p.AddOption(format)
+    p.BoolOption("force", "", "Overwrite the output file", false)
+    mut width := argon.NewIntOption("width", "w", "Line width", 80)
+    width.Range(20, 200)
+    p.AddOption(width)
+    mut input_spec := argon.NewStrOption("input", "i", "Input file", "")
+    input_spec.Require()
+    p.AddOption(input_spec)
+    defer p.Free()
+
+    res := p.ParseProcess()
+    defer res.Free()
+
+    if res.HelpWanted():
+        print p.Help()
+        ret argon.ArgExitOK
+    end
+    if not res.Ok():
+        printerrln res.Error()
+        ret res.ExitCode()
+    end
+
+    println "input: ", res.Str("input")
+    println "output:", res.Str("output")
+    println "format:", res.Str("format")
+    println "force: ", res.Bool("force")
+    println "width: ", res.Int("width")
+    ret argon.ArgExitOK
+end

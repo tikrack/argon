@@ -1,0 +1,38 @@
+// lang: en
+package main
+
+include argon "../src/argon.salam"
+
+func main:
+    mut p := argon.New("profile", "Validate a user profile")
+    mut age := argon.NewIntOption("age", "a", "Age in years", 18)
+    age.Range(0, 120)
+    p.AddOption(age)
+    mut name := argon.NewStrOption("name", "n", "Display name", "")
+    name.MinLength(2)
+    name.MaxLength(20)
+    p.AddOption(name)
+    mut color := argon.NewStrOption("color", "c", "Favourite colour", "blue")
+    color.OneOf("red")
+    color.OneOf("green")
+    color.OneOf("blue")
+    p.AddOption(color)
+    defer p.Free()
+
+    res := p.ParseProcess()
+    defer res.Free()
+
+    if res.HelpWanted():
+        print p.Help()
+        ret argon.ArgExitOK
+    end
+    if not res.Ok():
+        printerrln res.Error()
+        ret res.ExitCode()
+    end
+
+    println "name: ", res.Str("name")
+    println "age:  ", res.Int("age")
+    println "color:", res.Str("color")
+    ret argon.ArgExitOK
+end
