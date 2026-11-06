@@ -34,7 +34,7 @@ Argon is written in Salam and uses only the standard library.
 
 ## Requirements
 
-- Salam 0.5.4 or newer.
+- Salam 0.5.4 or newer (the current release is tested with Salam 0.6.2).
 - A C or LLVM toolchain supported by your Salam installation (for `salam run`
   and `salam build`).
 
@@ -386,6 +386,25 @@ salam run examples/validation.salam -- -n Ada -a 30 -c green
 Each example also supports `--help` and reports validation errors through
 Argon.
 
+## Documentation site
+
+The `site/` folder contains a static documentation site written in Salam's
+layout language. It covers the full API, validation, results, subcommands,
+errors, installation, examples and known limits. The design is a deliberately
+retro field manual: warm paper, rust and olive accents, Courier, hard offset
+shadows and numbered sections. There is no framework, tracker or external font.
+
+```sh
+make site          # rebuild site/index.html, index.css and index.js
+make site-preview  # serve the site at http://127.0.0.1:8000/
+```
+
+Edit `site/index.salam`, not the generated HTML or CSS. The generated files are
+committed so GitHub Pages can serve the folder directly. The workflow at
+`.github/workflows/pages.yml` installs Salam 0.6.2, runs the test suite, rebuilds
+the site and deploys it with the official Pages actions. Enable Pages once under
+`Settings -> Pages -> Build and deployment -> Source: GitHub Actions`.
+
 ## Running the tests
 
 ```sh
@@ -439,8 +458,18 @@ argon/
 │   ├── options.salam
 │   ├── subcommands.salam
 │   └── validation.salam
-└── tests/
-    └── argon_test.salam
+├── tests/
+│   └── argon_test.salam
+├── site/
+│   ├── index.salam         layout source for the documentation site
+│   ├── index.html          generated page
+│   ├── index.css           generated styles
+│   ├── index.js            generated copy-button script
+│   ├── favicon.svg
+│   └── README.md
+└── .github/
+    └── workflows/
+        └── pages.yml       CI: test, build and deploy to GitHub Pages
 ```
 
 There is no `argon.ini`: Argon has no runtime configuration file. Colour and

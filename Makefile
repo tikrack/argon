@@ -5,7 +5,7 @@ OUT ?= build
 
 export SALAM_STD
 
-.PHONY: all build check test examples format format-check clean serve-site
+.PHONY: all build check test examples format format-check site site-preview clean
 
 all: check test
 
@@ -16,6 +16,12 @@ build:
 check:
 	mkdir -p $(OUT)
 	$(SALAM) build main.salam --output=$(OUT)/argon-check --backend=$(BACKEND)
+
+site:
+	cd site && $(SALAM) page build index.salam
+
+site-preview:
+	$(SALAM) serve site --port=8000
 
 test:
 	$(SALAM) run tests/argon_test.salam --backend=$(BACKEND)
@@ -31,9 +37,6 @@ format:
 
 format-check:
 	$(SALAM) format src/argon.salam main.salam examples tests --check
-
-serve-site:
-	$(SALAM) serve site --port=8000
 
 clean:
 	rm -rf $(OUT)
