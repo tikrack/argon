@@ -187,7 +187,11 @@ pub struct Program:
             this.def_error = cmd.def_error
             ret
         end
-        if FindCommand(this, cmd.name) >= 0:
+        mut duplicate := false
+        repeat this.commands.len() in i:
+            if this.commands.get(i).name == cmd.name: duplicate = true end
+        end
+        if duplicate:
             this.def_error = "duplicate command '" + cmd.name + "'"
             ret
         end
@@ -403,26 +407,26 @@ func _find_short(options: Vector<OptionSpec>, name: str): int:
     ret 0 - 1
 end
 
-pub func FindCommand(p &: Program, name: str): int:
+pub func FindCommand(p: Program, name: str): int:
     repeat p.commands.len() in i:
         if p.commands.get(i).name == name: ret i end
     end
     ret 0 - 1
 end
 
-pub func CommandOptions(p &: Program, cmd: str): Vector<OptionSpec>:
+pub func CommandOptions(p: Program, cmd: str): Vector<OptionSpec>:
     i := FindCommand(p, cmd)
     if i < 0: ret p.options end
     ret p.commands.get(i).options
 end
 
-pub func CommandArgs(p &: Program, cmd: str): Vector<ArgumentSpec>:
+pub func CommandArgs(p: Program, cmd: str): Vector<ArgumentSpec>:
     i := FindCommand(p, cmd)
     if i < 0: ret p.args end
     ret p.commands.get(i).args
 end
 
-pub func LookupOption(p &: Program, cmd: str, name: str, out &: OptionSpec): bool:
+pub func LookupOption(p: Program, cmd: str, name: str, out &: OptionSpec): bool:
     if cmd != "":
         ci := FindCommand(p, cmd)
         if ci >= 0:
@@ -441,7 +445,7 @@ pub func LookupOption(p &: Program, cmd: str, name: str, out &: OptionSpec): boo
     ret false
 end
 
-pub func LookupShort(p &: Program, cmd: str, name: str, out &: OptionSpec): bool:
+pub func LookupShort(p: Program, cmd: str, name: str, out &: OptionSpec): bool:
     if cmd != "":
         ci := FindCommand(p, cmd)
         if ci >= 0:
