@@ -1,0 +1,128 @@
+<!doctype html><html lang="en" dir="ltr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Argon - CLI argument parsing for Salam</title><meta name="description" content="Argon is a typed, dependency-free command line argument parser for the Salam programming language."><meta name="theme-color" content="#f2e7d2"><link rel="icon" href="favicon.svg" type="image/svg+xml"><link rel="stylesheet" href="index.css"></head><body><header class="a" id="top"><div class="b"><a href="#top" class="c"><span class="d">ARGON</span><span class="e">/ CLI FIELD MANUAL</span></a><nav class="f"><a href="#manual" class="g">01 MANUAL</a><a href="#api" class="g">02 API</a><a href="#examples" class="g">03 EXAMPLES</a><a href="#errors" class="g">04 ERRORS</a><a href="https://github.com/SalamLang/Salam" class="h" target="_blank" rel="noopener">GITHUB ↗</a></nav></div></header><main><section class="i" id="manifesto"><div class="j"><div><span class="l">[ FIELD MANUAL / EDITION 01 ]</span><h1 class="m">ARGON</h1><p class="o">Typed command line parsing for Salam. Flags, options, positionals, subcommands, validation, help and completion, in one deliberate little library.</p><div class="p"><a href="#manual" class="q">READ THE MANUAL</a><a href="https://github.com/SalamLang/Salam" class="r" target="_blank" rel="noopener">SOURCE / GITHUB</a></div><div class="s"><span>SALAM 0.6.2</span><span>MIT LICENSE</span><span>ZERO DEPENDENCIES</span></div><div class="t"><span>APPROVED / FIELD TESTED</span></div></div><div class="u"><div class="v"><span class="h">● ● ●</span><span>ARGON / TTY-01</span></div><pre class="w" id="hero-code"><code>$ salam run main.salam -- --verbose --count 3 Ada
+hello, Ada
+output: build.txt
+count: 3
+verbose: true
+
+$ salam run main.salam -- --count nope Ada
+error: invalid int value for &#39;--count&#39;: &#39;nope&#39;
+try &#39;argon-demo --help&#39; for more information.</code></pre><div class="x"><div class="y"><span class="z">●</span><span>READY</span></div><button class="aa" type="button" data-copy="#hero-code">COPY</button></div></div></div></section><div class="ab"><div class="ac"><span>FLAGS ///</span><span>OPTIONS ///</span><span>POSITIONALS ///</span><span>SUBCOMMANDS ///</span><span>TYPED VALUES ///</span><span>HELP ///</span><span>COMPLETION ///</span><span>STRUCTURED ERRORS</span></div></div><section class="ad" id="features"><div class="ae"><div class="af"><span class="ah">02</span><div><span class="ai">CAPABILITIES</span><h2 class="aj">Everything a CLI needs, nothing it does not.</h2><p class="ak">Argon is deliberately small. It covers the common cases with a stable, readable API and leaves application logic to your program.</p></div></div><div class="al"><div class="ao"><span class="ap">01 / FLAGS</span><h3 class="aq">Long, short, counted.</h3><p class="ar">Define --verbose and -v once. Negatable flags accept --no-color. Count flags turn -vvv into the number three.</p></div><div class="ao"><span class="ap">02 / OPTIONS</span><h3 class="aq">Typed, with defaults.</h3><p class="ar">String, integer, float and boolean options. Every value is checked before it reaches your program.</p></div><div class="ao"><span class="ap">03 / POSITIONALS</span><h3 class="aq">Required, optional, rest.</h3><p class="ar">A positional can be required, optional, or collect the rest of the line. The -- marker stops option parsing cleanly.</p></div><div class="ao"><span class="ap">04 / VALIDATION</span><h3 class="aq">Rules, not guesses.</h3><p class="ar">OneOf, Range, MinLength and MaxLength reject bad input with a stable error kind and a useful message.</p></div><div class="ao"><span class="ap">05 / SUBCOMMANDS</span><h3 class="aq">One level, fully featured.</h3><p class="ar">Each command owns its options and arguments. Global options work before or after the command name.</p></div><div class="ao"><span class="ap">06 / HELP + COMPLETION</span><h3 class="aq">Paper that answers back.</h3><p class="ar">Aligned help with defaults, arguments and commands, plus ready-made Bash and Zsh completion scripts.</p></div></div></div></section><section class="as" id="manual"><div class="ae"><div class="af"><span class="ah">03</span><div><span class="ai">QUICK START</span><h2 class="aj">Three steps to a working interface.</h2><p class="ak">Keep the facade and the package folder together. Include the facade. Describe the command line once.</p></div></div><div class="at"><div class="av"><div class="aw"><span class="ax">01</span><div><span class="ay">INCLUDE THE FACADE</span><p class="az">Copy src/argon.salam and the src/argon/ folder into your project. The facade includes the package files for you.</p></div></div><div class="ba"><span class="ax">02</span><div><span class="ay">DESCRIBE THE INTERFACE</span><p class="az">Create a parser, add flags and options, add a positional, and let Argon generate help and validation.</p></div></div><div class="bb"><span class="ax">03</span><div><span class="ay">PARSE AND READ</span><p class="az">Call ParseProcess for os.Args or Parse for a vector. Check Ok, print Help when asked, and read typed values.</p></div></div><div class="bc"><span class="bd">FIELD NOTE</span><p class="be">Salam&#39;s import keyword is for the standard library. Local packages are joined with include; that is why the facade exists.</p></div></div><div class="bf"><div class="v"><span>main.salam</span><button class="bg" type="button" data-copy="#quick-code">COPY</button></div><pre class="bh" id="quick-code"><code>// lang: en
+package main
+
+include argon &quot;src/argon.salam&quot;
+
+func main:
+    mut p := argon.New(&quot;my-app&quot;, &quot;A sample Salam application&quot;)
+    p.SetVersion(&quot;1.0.0&quot;)
+    p.Flag(&quot;verbose&quot;, &quot;v&quot;, &quot;Enable verbose output&quot;)
+    p.StrOption(&quot;output&quot;, &quot;o&quot;, &quot;Output file path&quot;, &quot;build.txt&quot;)
+    p.IntOption(&quot;count&quot;, &quot;c&quot;, &quot;Number of items&quot;, 1)
+    p.Positional(&quot;name&quot;, &quot;Name to greet&quot;)
+    defer p.Free()
+
+    res := p.ParseProcess()
+    defer res.Free()
+
+    if res.HelpWanted():
+        print p.Help()
+        ret argon.ArgExitOK
+    end
+    if res.VersionWanted():
+        println p.VersionLine()
+        ret argon.ArgExitOK
+    end
+    if not res.Ok():
+        printerrln res.Error()
+        ret res.ExitCode()
+    end
+
+    println &quot;hello,&quot;, res.Str(&quot;name&quot;)
+    println &quot;count:&quot;, res.Int(&quot;count&quot;)
+    ret argon.ArgExitOK
+end</code></pre><div class="bi"><span>SALAM 0.6.2 / MIT</span><span>ONE INCLUDE</span></div></div></div></div></section><section class="ad" id="install"><div class="ae"><div class="af"><span class="ah">04</span><div><span class="ai">INSTALL / BUILD</span><h2 class="aj">A source file, a folder, and a make target.</h2><p class="ak">Argon has no package manager step and no runtime configuration. The repository carries the library, examples, tests and this site source.</p></div></div><div class="bj"><div class="ao"><span class="ap">REQUIREMENTS</span><p class="bk">Salam 0.6.2 or newer and a working C toolchain. The Makefile prefers the C backend on older releases, where the LLVM backend does not lower cross-package structs.</p><pre class="bl"><code>export PATH=&quot;$HOME/.salam/bin:$PATH&quot;
+export SALAM_STD=&quot;$HOME/.salam/bin/std&quot;</code></pre></div><div class="bm"><span class="bd">MAKE TARGETS</span><pre class="bn"><code>make build     # compile the demo
+make test      # 189 assertions
+make examples  # run four real CLIs
+make format-check
+make site      # rebuild this page</code></pre></div></div></div></section><section class="as" id="api"><div class="ae"><div class="af"><span class="ah">05</span><div><span class="ai">API / BUILDERS</span><h2 class="aj">Describe the command line once.</h2><p class="bo">The parser is a builder. Add definitions in the order you want them to appear in help, then parse. Definitions never throw; a bad definition becomes a definition error on the next parse.</p></div></div><h3 class="bp">Flags and options</h3><p class="ar">Every builder takes a long name, a one-character short name, and a help line. Use an empty short string when you only want the long form.</p><div class="bq"><table class="br"><thead class="bs"><tr><th class="bt">CALL</th><th class="bt">VALUE</th><th class="bt">NOTES</th></tr></thead><tbody><tr><td class="bu">p.Flag(name, short, help)</td><td class="bu">bool</td><td class="bu">--verbose and -v. False unless given.</td></tr><tr><td class="bu">p.NegatableFlag(name, short, help, default)</td><td class="bu">bool</td><td class="bu">--color, --no-color, --color=false.</td></tr><tr><td class="bu">p.CountFlag(name, short, help)</td><td class="bu">int</td><td class="bu">Repeats: -vvv gives 3. --verbose=2 is rejected.</td></tr><tr><td class="bu">p.StrOption(name, short, help, default)</td><td class="bu">str</td><td class="bu">The default is shown in help and used when the option is absent.</td></tr><tr><td class="bu">p.IntOption(name, short, help, default)</td><td class="bu">i64</td><td class="bu">Decimal, optional sign. Bad text is never silently zero.</td></tr><tr><td class="bu">p.FloatOption(name, short, help, default)</td><td class="bu">f64</td><td class="bu">Accepts a decimal point and an exponent.</td></tr><tr><td class="bu">p.BoolOption(name, short, help, default)</td><td class="bu">bool</td><td class="bu">--dry, --no-dry, --dry=false.</td></tr><tr><td class="bu">p.MultiOption(name, short, help)</td><td class="bu">Vector&lt;str&gt;</td><td class="bu">Repeatable: --include a --include b.</td></tr></tbody></table></div><h3 class="bv">Positionals</h3><p class="ar">A rest argument must be last. Required arguments are checked after option validation.</p><div class="bq"><table class="br"><thead class="bs"><tr><th class="bt">CALL</th><th class="bt">SHAPE</th><th class="bt">NOTES</th></tr></thead><tbody><tr><td class="bu">p.Positional(name, help)</td><td class="bu">&lt;name&gt;</td><td class="bu">Exactly one value, required.</td></tr><tr><td class="bu">p.OptionalPositional(name, help)</td><td class="bu">[name]</td><td class="bu">Zero or one value.</td></tr><tr><td class="bu">p.RestPositional(name, help, min)</td><td class="bu">[name...]</td><td class="bu">Collects the rest. min 0 or more; min 1 is required.</td></tr><tr><td class="bu">p.AddArgument(spec)</td><td class="bu">ArgumentSpec</td><td class="bu">Advanced construction through NewArgument and friends.</td></tr></tbody></table></div><h3 class="bv">Validation rules</h3><p class="ar">Rules live on the option spec. Build a spec, configure it, then add it to the parser or command.</p><div class="bq"><table class="br"><thead class="bs"><tr><th class="bt">RULE</th><th class="bt">ERROR KIND</th><th class="bt">BEHAVIOUR</th></tr></thead><tbody><tr><td class="bu">Require()</td><td class="bu">missing-required</td><td class="bu">The option must appear; its default is removed from help.</td></tr><tr><td class="bu">OneOf(value)</td><td class="bu">not-allowed</td><td class="bu">Append allowed values; the message lists them.</td></tr><tr><td class="bu">Range(lo, hi)</td><td class="bu">out-of-range</td><td class="bu">Inclusive numeric range for int and float.</td></tr><tr><td class="bu">MinLength(n)</td><td class="bu">too-short</td><td class="bu">Counts Unicode characters, not bytes.</td></tr><tr><td class="bu">MaxLength(n)</td><td class="bu">too-long</td><td class="bu">Counts Unicode characters, not bytes.</td></tr><tr><td class="bu">AllowRepeat()</td><td class="bu">duplicate-option</td><td class="bu">Without it, a value option may appear only once.</td></tr><tr><td class="bu">Hide()</td><td class="bu">-</td><td class="bu">Keeps the item parseable but out of help and completion.</td></tr></tbody></table></div><div class="bw"><div class="v"><span>advanced-validation.salam</span><button class="bg" type="button" data-copy="#api-code">COPY</button></div><pre class="bx" id="api-code"><code>mut mode := argon.NewStrOption(&quot;mode&quot;, &quot;m&quot;, &quot;Output mode&quot;, &quot;fast&quot;)
+mode.OneOf(&quot;fast&quot;)
+mode.OneOf(&quot;slow&quot;)
+mode.MinLength(2)
+mode.MaxLength(8)
+p.AddOption(mode)
+
+mut level := argon.NewIntOption(&quot;level&quot;, &quot;l&quot;, &quot;Level&quot;, 1)
+level.Range(1, 9)
+p.AddOption(level)
+
+mut tag := argon.NewStrOption(&quot;tag&quot;, &quot;t&quot;, &quot;Tag&quot;, &quot;&quot;)
+tag.Require()
+p.AddOption(tag)
+
+mut include := argon.NewMultiOption(&quot;include&quot;, &quot;I&quot;, &quot;Include path&quot;)
+include.AllowRepeat()
+p.AddOption(include)</code></pre></div></div></section><section class="ad" id="results"><div class="ae"><div class="af"><span class="ah">06</span><div><span class="ai">API / RESULTS</span><h2 class="aj">Read values like a typechecker is watching.</h2><p class="bo">A parse returns a Result. The result owns its values; free it when you are done. Getters return defaults when an option is absent and are only meaningful after Ok().</p></div></div><div class="by"><div class="ca"><table class="br"><thead class="bs"><tr><th class="bt">GETTER</th><th class="bt">TYPE</th><th class="bt">USE</th></tr></thead><tbody><tr><td class="cb">res.Ok()</td><td class="cb">bool</td><td class="cb">The parse succeeded.</td></tr><tr><td class="cb">res.HelpWanted()</td><td class="cb">bool</td><td class="cb">--help or -h was given.</td></tr><tr><td class="cb">res.VersionWanted()</td><td class="cb">bool</td><td class="cb">--version was given.</td></tr><tr><td class="cb">res.Command()</td><td class="cb">str</td><td class="cb">Selected subcommand, or empty.</td></tr><tr><td class="cb">res.Str(name)</td><td class="cb">str</td><td class="cb">First value or the default.</td></tr><tr><td class="cb">res.Int(name)</td><td class="cb">i64</td><td class="cb">Integer value, already checked.</td></tr><tr><td class="cb">res.Float(name)</td><td class="cb">f64</td><td class="cb">Float value, already checked.</td></tr><tr><td class="cb">res.Bool(name)</td><td class="cb">bool</td><td class="cb">True when set, or the default.</td></tr><tr><td class="cb">res.Num(name)</td><td class="cb">int</td><td class="cb">Occurrence count of a count flag.</td></tr><tr><td class="cb">res.IsSet(name)</td><td class="cb">bool</td><td class="cb">True only when given, not for a default.</td></tr><tr><td class="cb">res.ValueCount(name)</td><td class="cb">int</td><td class="cb">Number of stored values.</td></tr><tr><td class="cb">res.ValueAt(name, i)</td><td class="cb">str</td><td class="cb">One stored value, or empty.</td></tr><tr><td class="cb">res.Strs / Ints / Floats / Bools</td><td class="cb">Vector</td><td class="cb">Allocating copies. Free them.</td></tr><tr><td class="cb">res.Extras()</td><td class="cb">Vector&lt;str&gt;</td><td class="cb">Unknown positionals when AllowExtras is on.</td></tr><tr><td class="cb">res.ErrorKind / ErrorMessage / Error</td><td class="cb">str</td><td class="cb">Stable kind, raw message, formatted message.</td></tr><tr><td class="cb">res.ExitCode()</td><td class="cb">int</td><td class="cb">0 for success, help or version; 2 for usage errors.</td></tr></tbody></table></div><div><div class="cc"><div class="v"><span>result.salam</span><button class="bg" type="button" data-copy="#result-code">COPY</button></div><pre class="bx" id="result-code"><code>res := p.ParseProcess()
+defer res.Free()
+defer p.Free()
+
+if res.HelpWanted():
+    print p.HelpFor(res.Command())
+    ret argon.ArgExitOK
+end
+if res.VersionWanted():
+    println p.VersionLine()
+    ret argon.ArgExitOK
+end
+if not res.Ok():
+    printerrln res.Error()
+    ret res.ExitCode()
+end
+
+println &quot;name:  &quot;, res.Str(&quot;name&quot;)
+println &quot;count: &quot;, res.Int(&quot;count&quot;)
+println &quot;ratio: &quot;, res.Float(&quot;ratio&quot;)
+println &quot;verbose:&quot;, res.Bool(&quot;verbose&quot;)</code></pre></div><div class="bc"><span class="bd">MEMORY NOTE</span><p class="be">Parser.Free frees definitions; Result.Free frees parsed values. The list getters Strs, Ints, Floats and Bools return new vectors and must be freed too.</p></div></div></div></div></section><section class="as" id="subcommands"><div class="ae"><div class="af"><span class="ah">07</span><div><span class="ai">SUBCOMMANDS / TOOLING</span><h2 class="aj">Commands with their own paperwork.</h2><p class="bo">Each command owns its arguments and options. Global options work before or after the command name. Command help includes a Global options section.</p></div></div><div class="cd"><div class="ce"><div class="v"><span>subcommands.salam</span><button class="bg" type="button" data-copy="#sub-code">COPY</button></div><pre class="bx" id="sub-code"><code>mut p := argon.New(&quot;project&quot;, &quot;Project tool&quot;)
+p.Flag(&quot;verbose&quot;, &quot;v&quot;, &quot;Print more details&quot;)
+
+build := argon.NewCommand(&quot;build&quot;, &quot;Build the project&quot;)
+build.Flag(&quot;release&quot;, &quot;r&quot;, &quot;Release build&quot;)
+build.Positional(&quot;target&quot;, &quot;Build target&quot;)
+p.AddCommand(build)
+
+serve := argon.NewCommand(&quot;serve&quot;, &quot;Serve the project&quot;)
+mut port := argon.NewIntOption(&quot;port&quot;, &quot;p&quot;, &quot;Port&quot;, 8080)
+port.Range(1, 65535)
+serve.AddOption(port)
+p.AddCommand(serve)
+
+res := p.ParseProcess()
+defer res.Free()
+defer p.Free()
+
+if res.Command() == &quot;build&quot;:
+    println &quot;target:&quot;, res.Str(&quot;target&quot;)
+    println &quot;release:&quot;, res.Bool(&quot;release&quot;)
+end</code></pre></div><div><div class="cf"><span class="ap">COMMAND NOTES</span><div class="cg"><div class="ch"><span class="h">→</span><span>Use res.Command() to branch, then the same getters.</span></div><div class="ch"><span class="h">→</span><span>A global option is accepted before and after the command.</span></div><div class="ch"><span class="h">→</span><span>cmd.Hide() keeps a command out of help and completion.</span></div><div class="ch"><span class="h">→</span><span>Command options cannot reuse a global option name.</span></div><div class="ch"><span class="h">→</span><span>One level only. Nested subcommands are not implemented.</span></div></div></div><div class="ci"><span class="bd">COMPLETION + COLOUR</span><pre class="cj"><code>print p.Completion(&quot;bash&quot;)
+print p.Completion(&quot;zsh&quot;)
+
+p.SetColor(argon.ArgColorNever)
+p.SetColor(argon.ArgColorAlways)</code></pre><p class="ck">Auto colour is the default and only appears on a terminal. NO_COLOR and ARGON_COLOR=never disable it.</p></div></div></div></div></section><section class="ad" id="examples"><div class="ae"><div class="af"><span class="ah">08</span><div><span class="ai">EXAMPLES</span><h2 class="aj">Four small programs, no mock behaviour.</h2><p class="bo">Every example is a real program. The parser really parses, validates, and prints. Run them from the repository root.</p></div></div><div class="cl"><div class="cf"><span class="ap">01 / BASIC</span><h3 class="cm">A greeting with a flag.</h3><pre class="cn"><code>salam run examples/basic.salam -- --formal Ada
+Good day, Ada.</code></pre><p class="co">Long and short flags, a positional name, and help.</p></div><div class="cp"><span class="bd">02 / OPTIONS</span><h3 class="cm">A conversion report.</h3><pre class="cn"><code>salam run examples/options.salam -- \
+  -i input.txt -f json -w 100 --force</code></pre><p class="co">Required input, allowed formats, a range and a boolean.</p></div><div class="cf"><span class="ap">03 / SUBCOMMANDS</span><h3 class="cm">A project tool.</h3><pre class="cn"><code>salam run examples/subcommands.salam -- \
+  build --release -t wasm
+build target: wasm
+release: true</code></pre><p class="co">init, build and clean, each with its own help.</p></div><div class="cp"><span class="bd">04 / VALIDATION</span><h3 class="cm">A profile that says no.</h3><pre class="cn"><code>salam run examples/validation.salam -- \
+  -n Ada -a 30 -c green
+name:  Ada
+age:   30
+color: green</code></pre><p class="co">Age range, name length and an allowed colour list.</p></div></div></div></section><section class="as" id="errors"><div class="ae"><div class="af"><span class="ah">09</span><div><span class="ai">ERRORS</span><h2 class="aj">Bad input is a report, not a crash.</h2><p class="bo">Every failure has a stable kind, a readable message and a help hint. The parser never throws or aborts on user input.</p></div></div><div class="by"><div class="cc"><div class="v"><span>errors.tty</span><button class="bg" type="button" data-copy="#error-code">COPY</button></div><pre class="bx" id="error-code"><code>$ my-app --count nope Ada
+error: invalid int value for &#39;--count&#39;: &#39;nope&#39;
+try &#39;my-app --help&#39; for more information.
+
+$ my-app --colour
+error: unknown option &#39;--colour&#39;
+try &#39;my-app --help&#39; for more information.
+
+$ my-app --mode=other Ada
+error: invalid value &#39;other&#39; for &#39;--mode&#39; (allowed: fast, slow)
+try &#39;my-app --help&#39; for more information.</code></pre></div><div><span class="ap">ERROR KINDS</span><div class="cq"><span class="cr">unknown-option</span><span class="cr">unknown-command</span><span class="cr">missing-value</span><span class="cr">invalid-value</span><span class="cr">missing-required</span><span class="cr">missing-argument</span><span class="cr">too-many-arguments</span><span class="cr">out-of-range</span><span class="cr">not-allowed</span><span class="cr">too-short</span><span class="cr">too-long</span><span class="cr">duplicate-option</span><span class="cr">unexpected-argument</span><span class="cr">unexpected-value</span><span class="cr">definition</span></div><div class="cs"><span class="bd">EXIT CODES</span><p class="be">0 for success, help or version. 2 for usage errors. Your main function can return res.ExitCode() directly.</p></div></div></div></div></section><section class="ad" id="limits"><div class="ae"><div class="af"><span class="ah">10</span><div><span class="ai">KNOWN LIMITS</span><h2 class="aj">What this manual does not promise.</h2><p class="bo">A small library should say where it ends. These are the deliberate boundaries of version 1.0.0.</p></div></div><div class="ct"><details class="cu"><summary class="cv">Subcommands are one level deep.</summary><p class="cw">A command may have arguments, flags and options, but not another command. Nested command trees are future work.</p></details><details class="cu"><summary class="cv">Completion covers names, not values.</summary><p class="cw">Bash and Zsh scripts complete command and option names. Value providers would need a different API and are not part of this version.</p></details><details class="cu"><summary class="cv">A string value starting with - needs the equals form.</summary><p class="cw">Write --output=-file instead of --output -file. Numeric options accept a separate negative value, such as --level -5.</p></details><details class="cu"><summary class="cv">A parser is not shared between threads.</summary><p class="cw">Definitions are mutable while you build them. Create one parser per thread or finish building before sharing reads.</p></details><details class="cu"><summary class="cv">Salam 0.5.4 lowers cross-package structs only on the C backend.</summary><p class="cw">On 0.5.4 the LLVM backend prints a fallback warning and switches to C. The Makefile uses BACKEND=c by default. Salam 0.6.2 and newer may handle the LLVM path without a fallback.</p></details><details class="cu"><summary class="cv">Not every release ships a salam test subcommand.</summary><p class="cw">This project uses a normal executable test program, so make test works on every compiler version. The test exits with the number of failed assertions.</p></details></div></div></section></main><footer class="cx"><div class="cy"><div><span class="cz">ARGON</span><p class="da">A command line field manual for the Salam programming language. Built with the Salam layout language and served as static paper.</p></div><div><span class="ap">INDEX</span><a href="#manual" class="db">Manual</a><a href="#api" class="db">API</a><a href="#results" class="db">Results</a><a href="#subcommands" class="db">Subcommands</a><a href="#examples" class="db">Examples</a><a href="#errors" class="db">Errors</a><a href="#limits" class="db">Limits</a><a href="#top" class="dc">Back to top ↑</a></div><div><span class="ap">COLOPHON</span><p class="dd">Set in Courier. Printed with the Salam layout compiler. No frameworks, no trackers, no gradients.</p><span class="de">© 2026 ARGON CONTRIBUTORS / MIT</span></div></div></footer><script src="index.js"></script></body></html>

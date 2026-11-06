@@ -1,0 +1,1 @@
+document.querySelectorAll('[data-copy]').forEach(function(b){b.addEventListener('click',function(){var t=document.querySelector(b.getAttribute('data-copy'));if(!t)return;navigator.clipboard.writeText(t.innerText).then(function(){var o=b.textContent;b.textContent='COPIED';setTimeout(function(){b.textContent=o},1200)})})}); 

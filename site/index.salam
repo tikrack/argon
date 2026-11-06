@@ -1,0 +1,868 @@
+// lang: en
+page:
+    title = "Argon - CLI argument parsing for Salam"
+    lang = "english"
+    dir = "left to right"
+    meta: name = "description" content = "Argon is a typed, dependency-free command line argument parser for the Salam programming language." end
+    meta: name = "theme-color" content = "#f2e7d2" end
+    head link: rel = "icon" type = "image/svg+xml" url = "favicon.svg" end
+    style: content = ":root{--paper:#f2e7d2;--cream:#fbf6e8;--ink:#1b1a16;--rust:#b23a1b;--olive:#59613a;--muted:#6f6554}html{scroll-behavior:smooth}body{margin:0;background-color:var(--paper);background-image:repeating-linear-gradient(0deg,rgba(27,26,22,.035) 0 1px,transparent 1px 4px);color:var(--ink);font-family:'Courier New',ui-monospace,monospace}a{color:inherit;text-decoration:none}div{min-width:0}section{scroll-margin-top:86px}::selection{background:var(--rust);color:var(--cream)}@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}" end
+
+    header: id = "top" position = "sticky" top = 0 z index = 20 background = "#f2e7d2" border bottom = "2px solid #1b1a16"
+        box: max width = "1180px" margin = "0 auto" padding = "12px 24px" display = "flex" justify content = "space-between" align items = "center" gap = 16 flex wrap = wrap
+            link: url = "#top" display = "flex" align items = "baseline" gap = 8
+                span: content = "ARGON" font size = "20px" font weight = "bold" letter spacing = "0.18em" end
+                span: content = "/ CLI FIELD MANUAL" font size = "10px" letter spacing = "0.1em" color = "#6f6554" end
+            end
+            nav: display = flex gap = 14 flex wrap = wrap font size = "10px" letter spacing = "0.1em" align items = "center"
+                link: url = "#manual" content = "01 MANUAL" hover color = "#b23a1b" end
+                link: url = "#api" content = "02 API" hover color = "#b23a1b" end
+                link: url = "#examples" content = "03 EXAMPLES" hover color = "#b23a1b" end
+                link: url = "#errors" content = "04 ERRORS" hover color = "#b23a1b" end
+                link: url = "https://github.com/SalamLang/Salam" target = "_blank" rel = "noopener" content = "GITHUB ↗" color = "#b23a1b" end
+            end
+        end
+    end
+
+    main:
+        section: id = "manifesto" border bottom = "2px solid #1b1a16" padding = "58px 24px 48px"
+            box: max width = "1180px" margin = "0 auto" display = "grid" grid template columns = "1.15fr 0.85fr" gap = "44px" align items = "center"
+                media: condition = "(max-width: 860px)" grid template columns = "1fr" gap = 30 end
+                box:
+                    span: content = "[ FIELD MANUAL / EDITION 01 ]" font size = "10px" letter spacing = "0.16em" color = "#b23a1b" end
+                    heading: size = 1 content = "ARGON" font size = "112px" line height = 0.9 letter spacing = "-0.04em" margin = "14px 0 18px"
+                        media: condition = "(max-width: 720px)" font size = 64 end
+                    end
+                    paragraph: content = "Typed command line parsing for Salam. Flags, options, positionals, subcommands, validation, help and completion, in one deliberate little library." font size = "17px" line height = 1.55 max width = "620px" margin = 0 end
+                    box: display = flex gap = 12 flex wrap = wrap margin top = 24
+                        link: url = "#manual" content = "READ THE MANUAL" background = "#1b1a16" color = "#fbf6e8" border = "2px solid #1b1a16" padding = "11px 16px" box shadow = "4px 4px 0 #b23a1b" font size = "10px" letter spacing = "0.12em" hover background = "#b23a1b" hover box shadow = "2px 2px 0 #1b1a16" end
+                        link: url = "https://github.com/SalamLang/Salam" target = "_blank" rel = "noopener" content = "SOURCE / GITHUB" border = "2px solid #1b1a16" padding = "11px 16px" font size = "10px" letter spacing = "0.12em" box shadow = "4px 4px 0 #59613a" hover background = "#fbf6e8" hover box shadow = "2px 2px 0 #59613a" end
+                    end
+                    box: display = flex gap = 18 flex wrap = wrap margin top = 22 font size = "9px" letter spacing = "0.12em" color = "#6f6554"
+                        span: content = "SALAM 0.6.2" end
+                        span: content = "MIT LICENSE" end
+                        span: content = "ZERO DEPENDENCIES" end
+                    end
+                    box: display = "inline-block" border = "3px double #b23a1b" color = "#b23a1b" padding = "5px 10px" font size = "8px" letter spacing = "0.18em" transform = "rotate(-3deg)" margin top = 18
+                        span: content = "APPROVED / FIELD TESTED" end
+                    end
+                end
+                box: background = "#191814" color = "#efe4cb" border = "3px solid #1b1a16" box shadow = "10px 10px 0 #b23a1b"
+                    box: display = flex justify content = "space-between" align items = "center" padding = "8px 12px" border bottom = "1px solid #4a4438" font size = "9px" letter spacing = "0.12em" color = "#a89c86"
+                        span: content = "● ● ●" color = "#b23a1b" end
+                        span: content = "ARGON / TTY-01" end
+                    end
+                    preformatted: min width = 0 max width = "100%" id = "hero-code" margin = 0 padding = "16px" font size = "11px" line height = 1.7 overflow = "auto"
+                        code: content = `$ salam run main.salam -- --verbose --count 3 Ada
+hello, Ada
+output: build.txt
+count: 3
+verbose: true
+
+$ salam run main.salam -- --count nope Ada
+error: invalid int value for '--count': 'nope'
+try 'argon-demo --help' for more information.` end
+                    end
+                    box: display = flex justify content = "space-between" align items = "center" padding = "8px 12px" border top = "1px solid #4a4438" font size = "9px" letter spacing = "0.12em" color = "#a89c86"
+                        box: display = flex gap = 8 align items = "center"
+                            span: content = "●" color = "#9bbf5a" end
+                            span: content = "READY" end
+                        end
+                        button: type = "button" data copy = "#hero-code" content = "COPY" background = "transparent" color = "#efe4cb" border = "1px solid #6f6554" padding = "4px 8px" font size = "9px" letter spacing = "0.12em" hover background = "#2b2820" end
+                    end
+                end
+            end
+        end
+
+        box: background = "#b23a1b" color = "#fbf6e8" border bottom = "2px solid #1b1a16" padding = "7px 0"
+            box: max width = "1180px" margin = "0 auto" padding = "0 24px" display = "flex" gap = 26 flex wrap = wrap font size = "9px" letter spacing = "0.14em"
+                span: content = "FLAGS ///" end
+                span: content = "OPTIONS ///" end
+                span: content = "POSITIONALS ///" end
+                span: content = "SUBCOMMANDS ///" end
+                span: content = "TYPED VALUES ///" end
+                span: content = "HELP ///" end
+                span: content = "COMPLETION ///" end
+                span: content = "STRUCTURED ERRORS" end
+            end
+        end
+
+        section: id = "features" border bottom = "2px solid #1b1a16" padding = "52px 24px"
+            box: max width = "1180px" margin = "0 auto"
+                box: display = "grid" grid template columns = "120px 1fr" gap = 24 align items = "start"
+                    media: condition = "(max-width: 720px)" grid template columns = "1fr" gap = 8 end
+                    span: content = "02" font size = "44px" font weight = "bold" color = "#b23a1b" line height = 0.9 end
+                    box:
+                        span: content = "CAPABILITIES" font size = "9px" letter spacing = "0.16em" color = "#6f6554" end
+                        heading: size = 2 content = "Everything a CLI needs, nothing it does not." font size = "31px" line height = 1.12 margin = "6px 0 10px" end
+                        paragraph: content = "Argon is deliberately small. It covers the common cases with a stable, readable API and leaves application logic to your program." font size = "13px" line height = 1.65 max width = "780px" end
+                    end
+                end
+
+                box: display = "grid" grid template columns = "1fr 1fr 1fr" gap = 16 margin top = 26
+                    media: condition = "(max-width: 920px)" grid template columns = "1fr 1fr" end
+                    media: condition = "(max-width: 620px)" grid template columns = "1fr" end
+                    box: border = "2px solid #1b1a16" background = "#fbf6e8" padding = 18 box shadow = "5px 5px 0 #1b1a16"
+                        span: content = "01 / FLAGS" font size = "9px" letter spacing = "0.14em" color = "#b23a1b" end
+                        heading: size = 3 content = "Long, short, counted." font size = "18px" margin = "8px 0 6px" end
+                        paragraph: content = "Define --verbose and -v once. Negatable flags accept --no-color. Count flags turn -vvv into the number three." font size = "11px" line height = 1.6 end
+                    end
+                    box: border = "2px solid #1b1a16" background = "#fbf6e8" padding = 18 box shadow = "5px 5px 0 #1b1a16"
+                        span: content = "02 / OPTIONS" font size = "9px" letter spacing = "0.14em" color = "#b23a1b" end
+                        heading: size = 3 content = "Typed, with defaults." font size = "18px" margin = "8px 0 6px" end
+                        paragraph: content = "String, integer, float and boolean options. Every value is checked before it reaches your program." font size = "11px" line height = 1.6 end
+                    end
+                    box: border = "2px solid #1b1a16" background = "#fbf6e8" padding = 18 box shadow = "5px 5px 0 #1b1a16"
+                        span: content = "03 / POSITIONALS" font size = "9px" letter spacing = "0.14em" color = "#b23a1b" end
+                        heading: size = 3 content = "Required, optional, rest." font size = "18px" margin = "8px 0 6px" end
+                        paragraph: content = "A positional can be required, optional, or collect the rest of the line. The -- marker stops option parsing cleanly." font size = "11px" line height = 1.6 end
+                    end
+                    box: border = "2px solid #1b1a16" background = "#fbf6e8" padding = 18 box shadow = "5px 5px 0 #1b1a16"
+                        span: content = "04 / VALIDATION" font size = "9px" letter spacing = "0.14em" color = "#b23a1b" end
+                        heading: size = 3 content = "Rules, not guesses." font size = "18px" margin = "8px 0 6px" end
+                        paragraph: content = "OneOf, Range, MinLength and MaxLength reject bad input with a stable error kind and a useful message." font size = "11px" line height = 1.6 end
+                    end
+                    box: border = "2px solid #1b1a16" background = "#fbf6e8" padding = 18 box shadow = "5px 5px 0 #1b1a16"
+                        span: content = "05 / SUBCOMMANDS" font size = "9px" letter spacing = "0.14em" color = "#b23a1b" end
+                        heading: size = 3 content = "One level, fully featured." font size = "18px" margin = "8px 0 6px" end
+                        paragraph: content = "Each command owns its options and arguments. Global options work before or after the command name." font size = "11px" line height = 1.6 end
+                    end
+                    box: border = "2px solid #1b1a16" background = "#fbf6e8" padding = 18 box shadow = "5px 5px 0 #1b1a16"
+                        span: content = "06 / HELP + COMPLETION" font size = "9px" letter spacing = "0.14em" color = "#b23a1b" end
+                        heading: size = 3 content = "Paper that answers back." font size = "18px" margin = "8px 0 6px" end
+                        paragraph: content = "Aligned help with defaults, arguments and commands, plus ready-made Bash and Zsh completion scripts." font size = "11px" line height = 1.6 end
+                    end
+                end
+            end
+        end
+
+        section: id = "manual" border bottom = "2px solid #1b1a16" padding = "52px 24px" background = "#e9dcc3"
+            box: max width = "1180px" margin = "0 auto"
+                box: display = "grid" grid template columns = "120px 1fr" gap = 24 align items = "start"
+                    media: condition = "(max-width: 720px)" grid template columns = "1fr" gap = 8 end
+                    span: content = "03" font size = "44px" font weight = "bold" color = "#b23a1b" line height = 0.9 end
+                    box:
+                        span: content = "QUICK START" font size = "9px" letter spacing = "0.16em" color = "#6f6554" end
+                        heading: size = 2 content = "Three steps to a working interface." font size = "31px" line height = 1.12 margin = "6px 0 10px" end
+                        paragraph: content = "Keep the facade and the package folder together. Include the facade. Describe the command line once." font size = "13px" line height = 1.65 max width = "780px" end
+                    end
+                end
+
+                box: display = "grid" grid template columns = "0.9fr 1.1fr" gap = 26 margin top = 26
+                    media: condition = "(max-width: 900px)" grid template columns = "1fr" gap = 20 end
+                    box: min width = 0
+                        box: display = "grid" grid template columns = "34px 1fr" min width = 0 gap = 12 padding = "0 0 16px" border bottom = "1px dashed #9d8f78"
+                            span: content = "01" font size = "10px" font weight = "bold" color = "#b23a1b" end
+                            box:
+                                span: content = "INCLUDE THE FACADE" font size = "10px" letter spacing = "0.12em" font weight = "bold" end
+                                paragraph: content = "Copy src/argon.salam and the src/argon/ folder into your project. The facade includes the package files for you." font size = "11px" line height = 1.6 margin = "4px 0 0" end
+                            end
+                        end
+                        box: display = "grid" grid template columns = "34px 1fr" min width = 0 gap = 12 padding = "16px 0" border bottom = "1px dashed #9d8f78"
+                            span: content = "02" font size = "10px" font weight = "bold" color = "#b23a1b" end
+                            box:
+                                span: content = "DESCRIBE THE INTERFACE" font size = "10px" letter spacing = "0.12em" font weight = "bold" end
+                                paragraph: content = "Create a parser, add flags and options, add a positional, and let Argon generate help and validation." font size = "11px" line height = 1.6 margin = "4px 0 0" end
+                            end
+                        end
+                        box: display = "grid" grid template columns = "34px 1fr" min width = 0 gap = 12 padding = "16px 0"
+                            span: content = "03" font size = "10px" font weight = "bold" color = "#b23a1b" end
+                            box:
+                                span: content = "PARSE AND READ" font size = "10px" letter spacing = "0.12em" font weight = "bold" end
+                                paragraph: content = "Call ParseProcess for os.Args or Parse for a vector. Check Ok, print Help when asked, and read typed values." font size = "11px" line height = 1.6 margin = "4px 0 0" end
+                            end
+                        end
+                        box: border = "2px solid #1b1a16" background = "#fbf6e8" padding = 14 margin top = 18 box shadow = "4px 4px 0 #59613a"
+                            span: content = "FIELD NOTE" font size = "9px" letter spacing = "0.14em" color = "#59613a" end
+                            paragraph: content = "Salam's import keyword is for the standard library. Local packages are joined with include; that is why the facade exists." font size = "10px" line height = 1.6 margin = "5px 0 0" end
+                        end
+                    end
+                    box: background = "#191814" color = "#efe4cb" border = "2px solid #1b1a16" box shadow = "7px 7px 0 #b23a1b" min width = 0
+                        box: display = "flex" justify content = "space-between" align items = "center" padding = "8px 12px" border bottom = "1px solid #4a4438" font size = "9px" letter spacing = "0.12em" color = "#a89c86"
+                            span: content = "main.salam" end
+                            button: type = "button" data copy = "#quick-code" content = "COPY" background = "transparent" color = "#efe4cb" border = "1px solid #6f6554" padding = "3px 7px" font size = "8px" letter spacing = "0.12em" hover background = "#2b2820" end
+                        end
+                        preformatted: min width = 0 max width = "100%" id = "quick-code" margin = 0 padding = "16px" font size = "10px" line height = 1.65 overflow = "auto"
+                            code: content = `// lang: en
+package main
+
+include argon "src/argon.salam"
+
+func main:
+    mut p := argon.New("my-app", "A sample Salam application")
+    p.SetVersion("1.0.0")
+    p.Flag("verbose", "v", "Enable verbose output")
+    p.StrOption("output", "o", "Output file path", "build.txt")
+    p.IntOption("count", "c", "Number of items", 1)
+    p.Positional("name", "Name to greet")
+    defer p.Free()
+
+    res := p.ParseProcess()
+    defer res.Free()
+
+    if res.HelpWanted():
+        print p.Help()
+        ret argon.ArgExitOK
+    end
+    if res.VersionWanted():
+        println p.VersionLine()
+        ret argon.ArgExitOK
+    end
+    if not res.Ok():
+        printerrln res.Error()
+        ret res.ExitCode()
+    end
+
+    println "hello,", res.Str("name")
+    println "count:", res.Int("count")
+    ret argon.ArgExitOK
+end` end
+                        end
+                        box: display = "flex" justify content = "space-between" align items = "center" padding = "8px 12px" border top = "1px solid #4a4438" font size = "8px" letter spacing = "0.12em" color = "#a89c86"
+                            span: content = "SALAM 0.6.2 / MIT" end
+                            span: content = "ONE INCLUDE" end
+                        end
+                    end
+                end
+            end
+        end
+
+        section: id = "install" border bottom = "2px solid #1b1a16" padding = "52px 24px"
+            box: max width = "1180px" margin = "0 auto"
+                box: display = "grid" grid template columns = "120px 1fr" gap = 24 align items = "start"
+                    media: condition = "(max-width: 720px)" grid template columns = "1fr" gap = 8 end
+                    span: content = "04" font size = "44px" font weight = "bold" color = "#b23a1b" line height = 0.9 end
+                    box:
+                        span: content = "INSTALL / BUILD" font size = "9px" letter spacing = "0.16em" color = "#6f6554" end
+                        heading: size = 2 content = "A source file, a folder, and a make target." font size = "31px" line height = 1.12 margin = "6px 0 10px" end
+                        paragraph: content = "Argon has no package manager step and no runtime configuration. The repository carries the library, examples, tests and this site source." font size = "13px" line height = 1.65 max width = "780px" end
+                    end
+                end
+
+                box: display = "grid" grid template columns = "1fr 1fr" gap = 18 margin top = 26
+                    media: condition = "(max-width: 820px)" grid template columns = "1fr" end
+                    box: border = "2px solid #1b1a16" background = "#fbf6e8" padding = 18 box shadow = "5px 5px 0 #1b1a16"
+                        span: content = "REQUIREMENTS" font size = "9px" letter spacing = "0.14em" color = "#b23a1b" end
+                        paragraph: content = "Salam 0.6.2 or newer and a working C toolchain. The Makefile prefers the C backend on older releases, where the LLVM backend does not lower cross-package structs." font size = "11px" line height = 1.65 margin = "6px 0 10px" end
+                        preformatted: min width = 0 max width = "100%" margin = 0 padding = 12 background = "#191814" color = "#efe4cb" font size = "10px" line height = 1.6
+                            code: content = `export PATH="$HOME/.salam/bin:$PATH"
+export SALAM_STD="$HOME/.salam/bin/std"` end
+                        end
+                    end
+                    box: border = "2px solid #1b1a16" background = "#fbf6e8" padding = 18 box shadow = "5px 5px 0 #59613a"
+                        span: content = "MAKE TARGETS" font size = "9px" letter spacing = "0.14em" color = "#59613a" end
+                        preformatted: min width = 0 max width = "100%" margin = "8px 0 0" padding = 12 background = "#191814" color = "#efe4cb" font size = "10px" line height = 1.7
+                            code: content = `make build     # compile the demo
+make test      # 189 assertions
+make examples  # run four real CLIs
+make format-check
+make site      # rebuild this page` end
+                        end
+                    end
+                end
+            end
+        end
+        section: id = "api" border bottom = "2px solid #1b1a16" padding = "52px 24px" background = "#e9dcc3"
+            box: max width = "1180px" margin = "0 auto"
+                box: display = "grid" grid template columns = "120px 1fr" gap = 24 align items = "start"
+                    media: condition = "(max-width: 720px)" grid template columns = "1fr" gap = 8 end
+                    span: content = "05" font size = "44px" font weight = "bold" color = "#b23a1b" line height = 0.9 end
+                    box:
+                        span: content = "API / BUILDERS" font size = "9px" letter spacing = "0.16em" color = "#6f6554" end
+                        heading: size = 2 content = "Describe the command line once." font size = "31px" line height = 1.12 margin = "6px 0 10px" end
+                        paragraph: content = "The parser is a builder. Add definitions in the order you want them to appear in help, then parse. Definitions never throw; a bad definition becomes a definition error on the next parse." font size = "13px" line height = 1.65 max width = "800px" end
+                    end
+                end
+
+                heading: size = 3 content = "Flags and options" font size = "18px" margin = "26px 0 6px" end
+                paragraph: content = "Every builder takes a long name, a one-character short name, and a help line. Use an empty short string when you only want the long form." font size = "11px" line height = 1.6 end
+                box: overflow = "auto" margin top = 12
+                    table: width = "100%" border = "2px solid #1b1a16" border collapse = collapse font size = "10px"
+                        header: background = "#1b1a16" color = "#fbf6e8"
+                            row:
+                                column: content = "CALL" padding = "8px 10px" text align = "left" end
+                                column: content = "VALUE" padding = "8px 10px" text align = "left" end
+                                column: content = "NOTES" padding = "8px 10px" text align = "left" end
+                            end
+                        end
+                        main:
+                            row:
+                                column: content = "p.Flag(name, short, help)" padding = "8px 10px" border bottom = "1px solid #d8cbb4" vertical align = "top" end
+                                column: content = "bool" padding = "8px 10px" border bottom = "1px solid #d8cbb4" vertical align = "top" end
+                                column: content = "--verbose and -v. False unless given." padding = "8px 10px" border bottom = "1px solid #d8cbb4" vertical align = "top" end
+                            end
+                            row:
+                                column: content = "p.NegatableFlag(name, short, help, default)" padding = "8px 10px" border bottom = "1px solid #d8cbb4" vertical align = "top" end
+                                column: content = "bool" padding = "8px 10px" border bottom = "1px solid #d8cbb4" vertical align = "top" end
+                                column: content = "--color, --no-color, --color=false." padding = "8px 10px" border bottom = "1px solid #d8cbb4" vertical align = "top" end
+                            end
+                            row:
+                                column: content = "p.CountFlag(name, short, help)" padding = "8px 10px" border bottom = "1px solid #d8cbb4" vertical align = "top" end
+                                column: content = "int" padding = "8px 10px" border bottom = "1px solid #d8cbb4" vertical align = "top" end
+                                column: content = "Repeats: -vvv gives 3. --verbose=2 is rejected." padding = "8px 10px" border bottom = "1px solid #d8cbb4" vertical align = "top" end
+                            end
+                            row:
+                                column: content = "p.StrOption(name, short, help, default)" padding = "8px 10px" border bottom = "1px solid #d8cbb4" vertical align = "top" end
+                                column: content = "str" padding = "8px 10px" border bottom = "1px solid #d8cbb4" vertical align = "top" end
+                                column: content = "The default is shown in help and used when the option is absent." padding = "8px 10px" border bottom = "1px solid #d8cbb4" vertical align = "top" end
+                            end
+                            row:
+                                column: content = "p.IntOption(name, short, help, default)" padding = "8px 10px" border bottom = "1px solid #d8cbb4" vertical align = "top" end
+                                column: content = "i64" padding = "8px 10px" border bottom = "1px solid #d8cbb4" vertical align = "top" end
+                                column: content = "Decimal, optional sign. Bad text is never silently zero." padding = "8px 10px" border bottom = "1px solid #d8cbb4" vertical align = "top" end
+                            end
+                            row:
+                                column: content = "p.FloatOption(name, short, help, default)" padding = "8px 10px" border bottom = "1px solid #d8cbb4" vertical align = "top" end
+                                column: content = "f64" padding = "8px 10px" border bottom = "1px solid #d8cbb4" vertical align = "top" end
+                                column: content = "Accepts a decimal point and an exponent." padding = "8px 10px" border bottom = "1px solid #d8cbb4" vertical align = "top" end
+                            end
+                            row:
+                                column: content = "p.BoolOption(name, short, help, default)" padding = "8px 10px" border bottom = "1px solid #d8cbb4" vertical align = "top" end
+                                column: content = "bool" padding = "8px 10px" border bottom = "1px solid #d8cbb4" vertical align = "top" end
+                                column: content = "--dry, --no-dry, --dry=false." padding = "8px 10px" border bottom = "1px solid #d8cbb4" vertical align = "top" end
+                            end
+                            row:
+                                column: content = "p.MultiOption(name, short, help)" padding = "8px 10px" border bottom = "1px solid #d8cbb4" vertical align = "top" end
+                                column: content = "Vector<str>" padding = "8px 10px" border bottom = "1px solid #d8cbb4" vertical align = "top" end
+                                column: content = "Repeatable: --include a --include b." padding = "8px 10px" border bottom = "1px solid #d8cbb4" vertical align = "top" end
+                            end
+                        end
+                    end
+                end
+
+                heading: size = 3 content = "Positionals" font size = "18px" margin = "28px 0 6px" end
+                paragraph: content = "A rest argument must be last. Required arguments are checked after option validation." font size = "11px" line height = 1.6 end
+                box: overflow = "auto" margin top = 12
+                    table: width = "100%" border = "2px solid #1b1a16" border collapse = collapse font size = "10px"
+                        header: background = "#1b1a16" color = "#fbf6e8"
+                            row:
+                                column: content = "CALL" padding = "8px 10px" text align = "left" end
+                                column: content = "SHAPE" padding = "8px 10px" text align = "left" end
+                                column: content = "NOTES" padding = "8px 10px" text align = "left" end
+                            end
+                        end
+                        main:
+                            row:
+                                column: content = "p.Positional(name, help)" padding = "8px 10px" border bottom = "1px solid #d8cbb4" vertical align = "top" end
+                                column: content = "<name>" padding = "8px 10px" border bottom = "1px solid #d8cbb4" vertical align = "top" end
+                                column: content = "Exactly one value, required." padding = "8px 10px" border bottom = "1px solid #d8cbb4" vertical align = "top" end
+                            end
+                            row:
+                                column: content = "p.OptionalPositional(name, help)" padding = "8px 10px" border bottom = "1px solid #d8cbb4" vertical align = "top" end
+                                column: content = "[name]" padding = "8px 10px" border bottom = "1px solid #d8cbb4" vertical align = "top" end
+                                column: content = "Zero or one value." padding = "8px 10px" border bottom = "1px solid #d8cbb4" vertical align = "top" end
+                            end
+                            row:
+                                column: content = "p.RestPositional(name, help, min)" padding = "8px 10px" border bottom = "1px solid #d8cbb4" vertical align = "top" end
+                                column: content = "[name...]" padding = "8px 10px" border bottom = "1px solid #d8cbb4" vertical align = "top" end
+                                column: content = "Collects the rest. min 0 or more; min 1 is required." padding = "8px 10px" border bottom = "1px solid #d8cbb4" vertical align = "top" end
+                            end
+                            row:
+                                column: content = "p.AddArgument(spec)" padding = "8px 10px" border bottom = "1px solid #d8cbb4" vertical align = "top" end
+                                column: content = "ArgumentSpec" padding = "8px 10px" border bottom = "1px solid #d8cbb4" vertical align = "top" end
+                                column: content = "Advanced construction through NewArgument and friends." padding = "8px 10px" border bottom = "1px solid #d8cbb4" vertical align = "top" end
+                            end
+                        end
+                    end
+                end
+
+                heading: size = 3 content = "Validation rules" font size = "18px" margin = "28px 0 6px" end
+                paragraph: content = "Rules live on the option spec. Build a spec, configure it, then add it to the parser or command." font size = "11px" line height = 1.6 end
+                box: overflow = "auto" margin top = 12
+                    table: width = "100%" border = "2px solid #1b1a16" border collapse = collapse font size = "10px"
+                        header: background = "#1b1a16" color = "#fbf6e8"
+                            row:
+                                column: content = "RULE" padding = "8px 10px" text align = "left" end
+                                column: content = "ERROR KIND" padding = "8px 10px" text align = "left" end
+                                column: content = "BEHAVIOUR" padding = "8px 10px" text align = "left" end
+                            end
+                        end
+                        main:
+                            row:
+                                column: content = "Require()" padding = "8px 10px" border bottom = "1px solid #d8cbb4" vertical align = "top" end
+                                column: content = "missing-required" padding = "8px 10px" border bottom = "1px solid #d8cbb4" vertical align = "top" end
+                                column: content = "The option must appear; its default is removed from help." padding = "8px 10px" border bottom = "1px solid #d8cbb4" vertical align = "top" end
+                            end
+                            row:
+                                column: content = "OneOf(value)" padding = "8px 10px" border bottom = "1px solid #d8cbb4" vertical align = "top" end
+                                column: content = "not-allowed" padding = "8px 10px" border bottom = "1px solid #d8cbb4" vertical align = "top" end
+                                column: content = "Append allowed values; the message lists them." padding = "8px 10px" border bottom = "1px solid #d8cbb4" vertical align = "top" end
+                            end
+                            row:
+                                column: content = "Range(lo, hi)" padding = "8px 10px" border bottom = "1px solid #d8cbb4" vertical align = "top" end
+                                column: content = "out-of-range" padding = "8px 10px" border bottom = "1px solid #d8cbb4" vertical align = "top" end
+                                column: content = "Inclusive numeric range for int and float." padding = "8px 10px" border bottom = "1px solid #d8cbb4" vertical align = "top" end
+                            end
+                            row:
+                                column: content = "MinLength(n)" padding = "8px 10px" border bottom = "1px solid #d8cbb4" vertical align = "top" end
+                                column: content = "too-short" padding = "8px 10px" border bottom = "1px solid #d8cbb4" vertical align = "top" end
+                                column: content = "Counts Unicode characters, not bytes." padding = "8px 10px" border bottom = "1px solid #d8cbb4" vertical align = "top" end
+                            end
+                            row:
+                                column: content = "MaxLength(n)" padding = "8px 10px" border bottom = "1px solid #d8cbb4" vertical align = "top" end
+                                column: content = "too-long" padding = "8px 10px" border bottom = "1px solid #d8cbb4" vertical align = "top" end
+                                column: content = "Counts Unicode characters, not bytes." padding = "8px 10px" border bottom = "1px solid #d8cbb4" vertical align = "top" end
+                            end
+                            row:
+                                column: content = "AllowRepeat()" padding = "8px 10px" border bottom = "1px solid #d8cbb4" vertical align = "top" end
+                                column: content = "duplicate-option" padding = "8px 10px" border bottom = "1px solid #d8cbb4" vertical align = "top" end
+                                column: content = "Without it, a value option may appear only once." padding = "8px 10px" border bottom = "1px solid #d8cbb4" vertical align = "top" end
+                            end
+                            row:
+                                column: content = "Hide()" padding = "8px 10px" border bottom = "1px solid #d8cbb4" vertical align = "top" end
+                                column: content = "-" padding = "8px 10px" border bottom = "1px solid #d8cbb4" vertical align = "top" end
+                                column: content = "Keeps the item parseable but out of help and completion." padding = "8px 10px" border bottom = "1px solid #d8cbb4" vertical align = "top" end
+                            end
+                        end
+                    end
+                end
+
+                box: background = "#191814" color = "#efe4cb" border = "2px solid #1b1a16" box shadow = "6px 6px 0 #59613a" margin top = 24
+                    box: display = "flex" justify content = "space-between" align items = "center" padding = "8px 12px" border bottom = "1px solid #4a4438" font size = "9px" letter spacing = "0.12em" color = "#a89c86"
+                        span: content = "advanced-validation.salam" end
+                        button: type = "button" data copy = "#api-code" content = "COPY" background = "transparent" color = "#efe4cb" border = "1px solid #6f6554" padding = "3px 7px" font size = "8px" letter spacing = "0.12em" hover background = "#2b2820" end
+                    end
+                    preformatted: min width = 0 max width = "100%" id = "api-code" margin = 0 padding = "16px" font size = "10px" line height = 1.7 overflow = "auto"
+                        code: content = `mut mode := argon.NewStrOption("mode", "m", "Output mode", "fast")
+mode.OneOf("fast")
+mode.OneOf("slow")
+mode.MinLength(2)
+mode.MaxLength(8)
+p.AddOption(mode)
+
+mut level := argon.NewIntOption("level", "l", "Level", 1)
+level.Range(1, 9)
+p.AddOption(level)
+
+mut tag := argon.NewStrOption("tag", "t", "Tag", "")
+tag.Require()
+p.AddOption(tag)
+
+mut include := argon.NewMultiOption("include", "I", "Include path")
+include.AllowRepeat()
+p.AddOption(include)` end
+                    end
+                end
+            end
+        end
+        section: id = "results" border bottom = "2px solid #1b1a16" padding = "52px 24px"
+            box: max width = "1180px" margin = "0 auto"
+                box: display = "grid" grid template columns = "120px 1fr" gap = 24 align items = "start"
+                    media: condition = "(max-width: 720px)" grid template columns = "1fr" gap = 8 end
+                    span: content = "06" font size = "44px" font weight = "bold" color = "#b23a1b" line height = 0.9 end
+                    box:
+                        span: content = "API / RESULTS" font size = "9px" letter spacing = "0.16em" color = "#6f6554" end
+                        heading: size = 2 content = "Read values like a typechecker is watching." font size = "31px" line height = 1.12 margin = "6px 0 10px" end
+                        paragraph: content = "A parse returns a Result. The result owns its values; free it when you are done. Getters return defaults when an option is absent and are only meaningful after Ok()." font size = "13px" line height = 1.65 max width = "800px" end
+                    end
+                end
+
+                box: display = "grid" grid template columns = "1.05fr 0.95fr" gap = 24 margin top = 26
+                    media: condition = "(max-width: 900px)" grid template columns = "1fr" gap = 18 end
+                    box: overflow = "auto"
+                        table: width = "100%" border = "2px solid #1b1a16" border collapse = collapse font size = "10px"
+                            header: background = "#1b1a16" color = "#fbf6e8"
+                                row:
+                                    column: content = "GETTER" padding = "8px 10px" text align = "left" end
+                                    column: content = "TYPE" padding = "8px 10px" text align = "left" end
+                                    column: content = "USE" padding = "8px 10px" text align = "left" end
+                                end
+                            end
+                            main:
+                                row:
+                                    column: content = "res.Ok()" padding = "7px 10px" border bottom = "1px solid #d8cbb4" end
+                                    column: content = "bool" padding = "7px 10px" border bottom = "1px solid #d8cbb4" end
+                                    column: content = "The parse succeeded." padding = "7px 10px" border bottom = "1px solid #d8cbb4" end
+                                end
+                                row:
+                                    column: content = "res.HelpWanted()" padding = "7px 10px" border bottom = "1px solid #d8cbb4" end
+                                    column: content = "bool" padding = "7px 10px" border bottom = "1px solid #d8cbb4" end
+                                    column: content = "--help or -h was given." padding = "7px 10px" border bottom = "1px solid #d8cbb4" end
+                                end
+                                row:
+                                    column: content = "res.VersionWanted()" padding = "7px 10px" border bottom = "1px solid #d8cbb4" end
+                                    column: content = "bool" padding = "7px 10px" border bottom = "1px solid #d8cbb4" end
+                                    column: content = "--version was given." padding = "7px 10px" border bottom = "1px solid #d8cbb4" end
+                                end
+                                row:
+                                    column: content = "res.Command()" padding = "7px 10px" border bottom = "1px solid #d8cbb4" end
+                                    column: content = "str" padding = "7px 10px" border bottom = "1px solid #d8cbb4" end
+                                    column: content = "Selected subcommand, or empty." padding = "7px 10px" border bottom = "1px solid #d8cbb4" end
+                                end
+                                row:
+                                    column: content = "res.Str(name)" padding = "7px 10px" border bottom = "1px solid #d8cbb4" end
+                                    column: content = "str" padding = "7px 10px" border bottom = "1px solid #d8cbb4" end
+                                    column: content = "First value or the default." padding = "7px 10px" border bottom = "1px solid #d8cbb4" end
+                                end
+                                row:
+                                    column: content = "res.Int(name)" padding = "7px 10px" border bottom = "1px solid #d8cbb4" end
+                                    column: content = "i64" padding = "7px 10px" border bottom = "1px solid #d8cbb4" end
+                                    column: content = "Integer value, already checked." padding = "7px 10px" border bottom = "1px solid #d8cbb4" end
+                                end
+                                row:
+                                    column: content = "res.Float(name)" padding = "7px 10px" border bottom = "1px solid #d8cbb4" end
+                                    column: content = "f64" padding = "7px 10px" border bottom = "1px solid #d8cbb4" end
+                                    column: content = "Float value, already checked." padding = "7px 10px" border bottom = "1px solid #d8cbb4" end
+                                end
+                                row:
+                                    column: content = "res.Bool(name)" padding = "7px 10px" border bottom = "1px solid #d8cbb4" end
+                                    column: content = "bool" padding = "7px 10px" border bottom = "1px solid #d8cbb4" end
+                                    column: content = "True when set, or the default." padding = "7px 10px" border bottom = "1px solid #d8cbb4" end
+                                end
+                                row:
+                                    column: content = "res.Num(name)" padding = "7px 10px" border bottom = "1px solid #d8cbb4" end
+                                    column: content = "int" padding = "7px 10px" border bottom = "1px solid #d8cbb4" end
+                                    column: content = "Occurrence count of a count flag." padding = "7px 10px" border bottom = "1px solid #d8cbb4" end
+                                end
+                                row:
+                                    column: content = "res.IsSet(name)" padding = "7px 10px" border bottom = "1px solid #d8cbb4" end
+                                    column: content = "bool" padding = "7px 10px" border bottom = "1px solid #d8cbb4" end
+                                    column: content = "True only when given, not for a default." padding = "7px 10px" border bottom = "1px solid #d8cbb4" end
+                                end
+                                row:
+                                    column: content = "res.ValueCount(name)" padding = "7px 10px" border bottom = "1px solid #d8cbb4" end
+                                    column: content = "int" padding = "7px 10px" border bottom = "1px solid #d8cbb4" end
+                                    column: content = "Number of stored values." padding = "7px 10px" border bottom = "1px solid #d8cbb4" end
+                                end
+                                row:
+                                    column: content = "res.ValueAt(name, i)" padding = "7px 10px" border bottom = "1px solid #d8cbb4" end
+                                    column: content = "str" padding = "7px 10px" border bottom = "1px solid #d8cbb4" end
+                                    column: content = "One stored value, or empty." padding = "7px 10px" border bottom = "1px solid #d8cbb4" end
+                                end
+                                row:
+                                    column: content = "res.Strs / Ints / Floats / Bools" padding = "7px 10px" border bottom = "1px solid #d8cbb4" end
+                                    column: content = "Vector" padding = "7px 10px" border bottom = "1px solid #d8cbb4" end
+                                    column: content = "Allocating copies. Free them." padding = "7px 10px" border bottom = "1px solid #d8cbb4" end
+                                end
+                                row:
+                                    column: content = "res.Extras()" padding = "7px 10px" border bottom = "1px solid #d8cbb4" end
+                                    column: content = "Vector<str>" padding = "7px 10px" border bottom = "1px solid #d8cbb4" end
+                                    column: content = "Unknown positionals when AllowExtras is on." padding = "7px 10px" border bottom = "1px solid #d8cbb4" end
+                                end
+                                row:
+                                    column: content = "res.ErrorKind / ErrorMessage / Error" padding = "7px 10px" border bottom = "1px solid #d8cbb4" end
+                                    column: content = "str" padding = "7px 10px" border bottom = "1px solid #d8cbb4" end
+                                    column: content = "Stable kind, raw message, formatted message." padding = "7px 10px" border bottom = "1px solid #d8cbb4" end
+                                end
+                                row:
+                                    column: content = "res.ExitCode()" padding = "7px 10px" border bottom = "1px solid #d8cbb4" end
+                                    column: content = "int" padding = "7px 10px" border bottom = "1px solid #d8cbb4" end
+                                    column: content = "0 for success, help or version; 2 for usage errors." padding = "7px 10px" border bottom = "1px solid #d8cbb4" end
+                                end
+                            end
+                        end
+                    end
+
+                    box:
+                        box: background = "#191814" color = "#efe4cb" border = "2px solid #1b1a16" box shadow = "6px 6px 0 #b23a1b"
+                            box: display = "flex" justify content = "space-between" align items = "center" padding = "8px 12px" border bottom = "1px solid #4a4438" font size = "9px" letter spacing = "0.12em" color = "#a89c86"
+                                span: content = "result.salam" end
+                                button: type = "button" data copy = "#result-code" content = "COPY" background = "transparent" color = "#efe4cb" border = "1px solid #6f6554" padding = "3px 7px" font size = "8px" letter spacing = "0.12em" hover background = "#2b2820" end
+                            end
+                            preformatted: min width = 0 max width = "100%" id = "result-code" margin = 0 padding = "16px" font size = "10px" line height = 1.7 overflow = "auto"
+                                code: content = `res := p.ParseProcess()
+defer res.Free()
+defer p.Free()
+
+if res.HelpWanted():
+    print p.HelpFor(res.Command())
+    ret argon.ArgExitOK
+end
+if res.VersionWanted():
+    println p.VersionLine()
+    ret argon.ArgExitOK
+end
+if not res.Ok():
+    printerrln res.Error()
+    ret res.ExitCode()
+end
+
+println "name:  ", res.Str("name")
+println "count: ", res.Int("count")
+println "ratio: ", res.Float("ratio")
+println "verbose:", res.Bool("verbose")` end
+                            end
+                        end
+                        box: border = "2px solid #1b1a16" background = "#fbf6e8" padding = 14 margin top = 18 box shadow = "4px 4px 0 #59613a"
+                            span: content = "MEMORY NOTE" font size = "9px" letter spacing = "0.14em" color = "#59613a" end
+                            paragraph: content = "Parser.Free frees definitions; Result.Free frees parsed values. The list getters Strs, Ints, Floats and Bools return new vectors and must be freed too." font size = "10px" line height = 1.6 margin = "5px 0 0" end
+                        end
+                    end
+                end
+            end
+        end
+        section: id = "subcommands" border bottom = "2px solid #1b1a16" padding = "52px 24px" background = "#e9dcc3"
+            box: max width = "1180px" margin = "0 auto"
+                box: display = "grid" grid template columns = "120px 1fr" gap = 24 align items = "start"
+                    media: condition = "(max-width: 720px)" grid template columns = "1fr" gap = 8 end
+                    span: content = "07" font size = "44px" font weight = "bold" color = "#b23a1b" line height = 0.9 end
+                    box:
+                        span: content = "SUBCOMMANDS / TOOLING" font size = "9px" letter spacing = "0.16em" color = "#6f6554" end
+                        heading: size = 2 content = "Commands with their own paperwork." font size = "31px" line height = 1.12 margin = "6px 0 10px" end
+                        paragraph: content = "Each command owns its arguments and options. Global options work before or after the command name. Command help includes a Global options section." font size = "13px" line height = 1.65 max width = "800px" end
+                    end
+                end
+
+                box: display = "grid" grid template columns = "1.1fr 0.9fr" gap = 24 margin top = 26
+                    media: condition = "(max-width: 900px)" grid template columns = "1fr" gap = 18 end
+                    box: background = "#191814" color = "#efe4cb" border = "2px solid #1b1a16" box shadow = "6px 6px 0 #59613a"
+                        box: display = "flex" justify content = "space-between" align items = "center" padding = "8px 12px" border bottom = "1px solid #4a4438" font size = "9px" letter spacing = "0.12em" color = "#a89c86"
+                            span: content = "subcommands.salam" end
+                            button: type = "button" data copy = "#sub-code" content = "COPY" background = "transparent" color = "#efe4cb" border = "1px solid #6f6554" padding = "3px 7px" font size = "8px" letter spacing = "0.12em" hover background = "#2b2820" end
+                        end
+                        preformatted: min width = 0 max width = "100%" id = "sub-code" margin = 0 padding = "16px" font size = "10px" line height = 1.7 overflow = "auto"
+                            code: content = `mut p := argon.New("project", "Project tool")
+p.Flag("verbose", "v", "Print more details")
+
+build := argon.NewCommand("build", "Build the project")
+build.Flag("release", "r", "Release build")
+build.Positional("target", "Build target")
+p.AddCommand(build)
+
+serve := argon.NewCommand("serve", "Serve the project")
+mut port := argon.NewIntOption("port", "p", "Port", 8080)
+port.Range(1, 65535)
+serve.AddOption(port)
+p.AddCommand(serve)
+
+res := p.ParseProcess()
+defer res.Free()
+defer p.Free()
+
+if res.Command() == "build":
+    println "target:", res.Str("target")
+    println "release:", res.Bool("release")
+end` end
+                        end
+                    end
+
+                    box:
+                        box: border = "2px solid #1b1a16" background = "#fbf6e8" padding = 16 box shadow = "5px 5px 0 #1b1a16"
+                            span: content = "COMMAND NOTES" font size = "9px" letter spacing = "0.14em" color = "#b23a1b" end
+                            box: display = "grid" gap = 8 margin top = 8 font size = "10px" line height = 1.55
+                                box: display = "grid" grid template columns = "20px 1fr" gap = 6
+                                    span: content = "→" color = "#b23a1b" end
+                                    span: content = "Use res.Command() to branch, then the same getters." end
+                                end
+                                box: display = "grid" grid template columns = "20px 1fr" gap = 6
+                                    span: content = "→" color = "#b23a1b" end
+                                    span: content = "A global option is accepted before and after the command." end
+                                end
+                                box: display = "grid" grid template columns = "20px 1fr" gap = 6
+                                    span: content = "→" color = "#b23a1b" end
+                                    span: content = "cmd.Hide() keeps a command out of help and completion." end
+                                end
+                                box: display = "grid" grid template columns = "20px 1fr" gap = 6
+                                    span: content = "→" color = "#b23a1b" end
+                                    span: content = "Command options cannot reuse a global option name." end
+                                end
+                                box: display = "grid" grid template columns = "20px 1fr" gap = 6
+                                    span: content = "→" color = "#b23a1b" end
+                                    span: content = "One level only. Nested subcommands are not implemented." end
+                                end
+                            end
+                        end
+                        box: border = "2px solid #1b1a16" background = "#fbf6e8" padding = 16 margin top = 16 box shadow = "5px 5px 0 #59613a"
+                            span: content = "COMPLETION + COLOUR" font size = "9px" letter spacing = "0.14em" color = "#59613a" end
+                            preformatted: min width = 0 max width = "100%" margin = "8px 0 0" padding = 0 background = "transparent" color = "#1b1a16" font size = "10px" line height = 1.7
+                                code: content = `print p.Completion("bash")
+print p.Completion("zsh")
+
+p.SetColor(argon.ArgColorNever)
+p.SetColor(argon.ArgColorAlways)` end
+                            end
+                            paragraph: content = "Auto colour is the default and only appears on a terminal. NO_COLOR and ARGON_COLOR=never disable it." font size = "10px" line height = 1.55 margin = "6px 0 0" end
+                        end
+                    end
+                end
+            end
+        end
+        section: id = "examples" border bottom = "2px solid #1b1a16" padding = "52px 24px"
+            box: max width = "1180px" margin = "0 auto"
+                box: display = "grid" grid template columns = "120px 1fr" gap = 24 align items = "start"
+                    media: condition = "(max-width: 720px)" grid template columns = "1fr" gap = 8 end
+                    span: content = "08" font size = "44px" font weight = "bold" color = "#b23a1b" line height = 0.9 end
+                    box:
+                        span: content = "EXAMPLES" font size = "9px" letter spacing = "0.16em" color = "#6f6554" end
+                        heading: size = 2 content = "Four small programs, no mock behaviour." font size = "31px" line height = 1.12 margin = "6px 0 10px" end
+                        paragraph: content = "Every example is a real program. The parser really parses, validates, and prints. Run them from the repository root." font size = "13px" line height = 1.65 max width = "800px" end
+                    end
+                end
+
+                box: display = "grid" grid template columns = "1fr 1fr" gap = 16 margin top = 26
+                    media: condition = "(max-width: 760px)" grid template columns = "1fr" end
+                    box: border = "2px solid #1b1a16" background = "#fbf6e8" padding = 16 box shadow = "5px 5px 0 #1b1a16"
+                        span: content = "01 / BASIC" font size = "9px" letter spacing = "0.14em" color = "#b23a1b" end
+                        heading: size = 3 content = "A greeting with a flag." font size = "17px" margin = "6px 0 8px" end
+                        preformatted: min width = 0 max width = "100%" margin = 0 padding = 10 background = "#191814" color = "#efe4cb" font size = "9px" line height = 1.6
+                            code: content = `salam run examples/basic.salam -- --formal Ada
+Good day, Ada.` end
+                        end
+                        paragraph: content = "Long and short flags, a positional name, and help." font size = "10px" line height = 1.55 margin = "8px 0 0" end
+                    end
+                    box: border = "2px solid #1b1a16" background = "#fbf6e8" padding = 16 box shadow = "5px 5px 0 #59613a"
+                        span: content = "02 / OPTIONS" font size = "9px" letter spacing = "0.14em" color = "#59613a" end
+                        heading: size = 3 content = "A conversion report." font size = "17px" margin = "6px 0 8px" end
+                        preformatted: min width = 0 max width = "100%" margin = 0 padding = 10 background = "#191814" color = "#efe4cb" font size = "9px" line height = 1.6
+                            code: content = `salam run examples/options.salam -- \
+  -i input.txt -f json -w 100 --force` end
+                        end
+                        paragraph: content = "Required input, allowed formats, a range and a boolean." font size = "10px" line height = 1.55 margin = "8px 0 0" end
+                    end
+                    box: border = "2px solid #1b1a16" background = "#fbf6e8" padding = 16 box shadow = "5px 5px 0 #1b1a16"
+                        span: content = "03 / SUBCOMMANDS" font size = "9px" letter spacing = "0.14em" color = "#b23a1b" end
+                        heading: size = 3 content = "A project tool." font size = "17px" margin = "6px 0 8px" end
+                        preformatted: min width = 0 max width = "100%" margin = 0 padding = 10 background = "#191814" color = "#efe4cb" font size = "9px" line height = 1.6
+                            code: content = `salam run examples/subcommands.salam -- \
+  build --release -t wasm
+build target: wasm
+release: true` end
+                        end
+                        paragraph: content = "init, build and clean, each with its own help." font size = "10px" line height = 1.55 margin = "8px 0 0" end
+                    end
+                    box: border = "2px solid #1b1a16" background = "#fbf6e8" padding = 16 box shadow = "5px 5px 0 #59613a"
+                        span: content = "04 / VALIDATION" font size = "9px" letter spacing = "0.14em" color = "#59613a" end
+                        heading: size = 3 content = "A profile that says no." font size = "17px" margin = "6px 0 8px" end
+                        preformatted: min width = 0 max width = "100%" margin = 0 padding = 10 background = "#191814" color = "#efe4cb" font size = "9px" line height = 1.6
+                            code: content = `salam run examples/validation.salam -- \
+  -n Ada -a 30 -c green
+name:  Ada
+age:   30
+color: green` end
+                        end
+                        paragraph: content = "Age range, name length and an allowed colour list." font size = "10px" line height = 1.55 margin = "8px 0 0" end
+                    end
+                end
+            end
+        end
+        section: id = "errors" border bottom = "2px solid #1b1a16" padding = "52px 24px" background = "#e9dcc3"
+            box: max width = "1180px" margin = "0 auto"
+                box: display = "grid" grid template columns = "120px 1fr" gap = 24 align items = "start"
+                    media: condition = "(max-width: 720px)" grid template columns = "1fr" gap = 8 end
+                    span: content = "09" font size = "44px" font weight = "bold" color = "#b23a1b" line height = 0.9 end
+                    box:
+                        span: content = "ERRORS" font size = "9px" letter spacing = "0.16em" color = "#6f6554" end
+                        heading: size = 2 content = "Bad input is a report, not a crash." font size = "31px" line height = 1.12 margin = "6px 0 10px" end
+                        paragraph: content = "Every failure has a stable kind, a readable message and a help hint. The parser never throws or aborts on user input." font size = "13px" line height = 1.65 max width = "800px" end
+                    end
+                end
+
+                box: display = "grid" grid template columns = "1.05fr 0.95fr" gap = 24 margin top = 26
+                    media: condition = "(max-width: 900px)" grid template columns = "1fr" gap = 18 end
+                    box: background = "#191814" color = "#efe4cb" border = "2px solid #1b1a16" box shadow = "6px 6px 0 #b23a1b"
+                        box: display = "flex" justify content = "space-between" align items = "center" padding = "8px 12px" border bottom = "1px solid #4a4438" font size = "9px" letter spacing = "0.12em" color = "#a89c86"
+                            span: content = "errors.tty" end
+                            button: type = "button" data copy = "#error-code" content = "COPY" background = "transparent" color = "#efe4cb" border = "1px solid #6f6554" padding = "3px 7px" font size = "8px" letter spacing = "0.12em" hover background = "#2b2820" end
+                        end
+                        preformatted: min width = 0 max width = "100%" id = "error-code" margin = 0 padding = "16px" font size = "10px" line height = 1.7 overflow = "auto"
+                            code: content = `$ my-app --count nope Ada
+error: invalid int value for '--count': 'nope'
+try 'my-app --help' for more information.
+
+$ my-app --colour
+error: unknown option '--colour'
+try 'my-app --help' for more information.
+
+$ my-app --mode=other Ada
+error: invalid value 'other' for '--mode' (allowed: fast, slow)
+try 'my-app --help' for more information.` end
+                        end
+                    end
+
+                    box:
+                        span: content = "ERROR KINDS" font size = "9px" letter spacing = "0.14em" color = "#b23a1b" end
+                        box: display = "flex" flex wrap = wrap gap = 6 margin top = 8
+                            span: content = "unknown-option" border = "1px solid #1b1a16" background = "#fbf6e8" padding = "3px 6px" font size = "9px" end
+                            span: content = "unknown-command" border = "1px solid #1b1a16" background = "#fbf6e8" padding = "3px 6px" font size = "9px" end
+                            span: content = "missing-value" border = "1px solid #1b1a16" background = "#fbf6e8" padding = "3px 6px" font size = "9px" end
+                            span: content = "invalid-value" border = "1px solid #1b1a16" background = "#fbf6e8" padding = "3px 6px" font size = "9px" end
+                            span: content = "missing-required" border = "1px solid #1b1a16" background = "#fbf6e8" padding = "3px 6px" font size = "9px" end
+                            span: content = "missing-argument" border = "1px solid #1b1a16" background = "#fbf6e8" padding = "3px 6px" font size = "9px" end
+                            span: content = "too-many-arguments" border = "1px solid #1b1a16" background = "#fbf6e8" padding = "3px 6px" font size = "9px" end
+                            span: content = "out-of-range" border = "1px solid #1b1a16" background = "#fbf6e8" padding = "3px 6px" font size = "9px" end
+                            span: content = "not-allowed" border = "1px solid #1b1a16" background = "#fbf6e8" padding = "3px 6px" font size = "9px" end
+                            span: content = "too-short" border = "1px solid #1b1a16" background = "#fbf6e8" padding = "3px 6px" font size = "9px" end
+                            span: content = "too-long" border = "1px solid #1b1a16" background = "#fbf6e8" padding = "3px 6px" font size = "9px" end
+                            span: content = "duplicate-option" border = "1px solid #1b1a16" background = "#fbf6e8" padding = "3px 6px" font size = "9px" end
+                            span: content = "unexpected-argument" border = "1px solid #1b1a16" background = "#fbf6e8" padding = "3px 6px" font size = "9px" end
+                            span: content = "unexpected-value" border = "1px solid #1b1a16" background = "#fbf6e8" padding = "3px 6px" font size = "9px" end
+                            span: content = "definition" border = "1px solid #1b1a16" background = "#fbf6e8" padding = "3px 6px" font size = "9px" end
+                        end
+                        box: border = "2px solid #1b1a16" background = "#fbf6e8" padding = 14 margin top = 16 box shadow = "4px 4px 0 #59613a"
+                            span: content = "EXIT CODES" font size = "9px" letter spacing = "0.14em" color = "#59613a" end
+                            paragraph: content = "0 for success, help or version. 2 for usage errors. Your main function can return res.ExitCode() directly." font size = "10px" line height = 1.6 margin = "5px 0 0" end
+                        end
+                    end
+                end
+            end
+        end
+        section: id = "limits" border bottom = "2px solid #1b1a16" padding = "52px 24px"
+            box: max width = "1180px" margin = "0 auto"
+                box: display = "grid" grid template columns = "120px 1fr" gap = 24 align items = "start"
+                    media: condition = "(max-width: 720px)" grid template columns = "1fr" gap = 8 end
+                    span: content = "10" font size = "44px" font weight = "bold" color = "#b23a1b" line height = 0.9 end
+                    box:
+                        span: content = "KNOWN LIMITS" font size = "9px" letter spacing = "0.16em" color = "#6f6554" end
+                        heading: size = 2 content = "What this manual does not promise." font size = "31px" line height = 1.12 margin = "6px 0 10px" end
+                        paragraph: content = "A small library should say where it ends. These are the deliberate boundaries of version 1.0.0." font size = "13px" line height = 1.65 max width = "800px" end
+                    end
+                end
+
+                box: margin top = 20 border top = "1px solid #1b1a16"
+                    details: border bottom = "1px solid #1b1a16" padding = "9px 0"
+                        summary: content = "Subcommands are one level deep." font size = "11px" font weight = "bold" cursor = "pointer" end
+                        paragraph: content = "A command may have arguments, flags and options, but not another command. Nested command trees are future work." font size = "10px" line height = 1.6 color = "#6f6554" margin = "6px 0 0" end
+                    end
+                    details: border bottom = "1px solid #1b1a16" padding = "9px 0"
+                        summary: content = "Completion covers names, not values." font size = "11px" font weight = "bold" cursor = "pointer" end
+                        paragraph: content = "Bash and Zsh scripts complete command and option names. Value providers would need a different API and are not part of this version." font size = "10px" line height = 1.6 color = "#6f6554" margin = "6px 0 0" end
+                    end
+                    details: border bottom = "1px solid #1b1a16" padding = "9px 0"
+                        summary: content = "A string value starting with - needs the equals form." font size = "11px" font weight = "bold" cursor = "pointer" end
+                        paragraph: content = "Write --output=-file instead of --output -file. Numeric options accept a separate negative value, such as --level -5." font size = "10px" line height = 1.6 color = "#6f6554" margin = "6px 0 0" end
+                    end
+                    details: border bottom = "1px solid #1b1a16" padding = "9px 0"
+                        summary: content = "A parser is not shared between threads." font size = "11px" font weight = "bold" cursor = "pointer" end
+                        paragraph: content = "Definitions are mutable while you build them. Create one parser per thread or finish building before sharing reads." font size = "10px" line height = 1.6 color = "#6f6554" margin = "6px 0 0" end
+                    end
+                    details: border bottom = "1px solid #1b1a16" padding = "9px 0"
+                        summary: content = "Salam 0.5.4 lowers cross-package structs only on the C backend." font size = "11px" font weight = "bold" cursor = "pointer" end
+                        paragraph: content = "On 0.5.4 the LLVM backend prints a fallback warning and switches to C. The Makefile uses BACKEND=c by default. Salam 0.6.2 and newer may handle the LLVM path without a fallback." font size = "10px" line height = 1.6 color = "#6f6554" margin = "6px 0 0" end
+                    end
+                    details: border bottom = "1px solid #1b1a16" padding = "9px 0"
+                        summary: content = "Not every release ships a salam test subcommand." font size = "11px" font weight = "bold" cursor = "pointer" end
+                        paragraph: content = "This project uses a normal executable test program, so make test works on every compiler version. The test exits with the number of failed assertions." font size = "10px" line height = 1.6 color = "#6f6554" margin = "6px 0 0" end
+                    end
+                end
+            end
+        end
+    end
+
+    footer: background = "#1b1a16" color = "#f2e7d2" padding = "34px 24px"
+        box: max width = "1180px" margin = "0 auto" display = "grid" grid template columns = "1.4fr 1fr 1fr" gap = 28
+            media: condition = "(max-width: 720px)" grid template columns = "1fr" gap = 20 end
+            box:
+                span: content = "ARGON" font size = "28px" font weight = "bold" letter spacing = "0.16em" end
+                paragraph: content = "A command line field manual for the Salam programming language. Built with the Salam layout language and served as static paper." font size = "11px" line height = 1.6 color = "#a89c86" max width = "420px" end
+            end
+            box:
+                span: content = "INDEX" font size = "9px" letter spacing = "0.14em" color = "#b23a1b" end
+                link: url = "#manual" content = "Manual" display = "block" font size = "11px" padding = "3px 0" end
+                link: url = "#api" content = "API" display = "block" font size = "11px" padding = "3px 0" end
+                link: url = "#results" content = "Results" display = "block" font size = "11px" padding = "3px 0" end
+                link: url = "#subcommands" content = "Subcommands" display = "block" font size = "11px" padding = "3px 0" end
+                link: url = "#examples" content = "Examples" display = "block" font size = "11px" padding = "3px 0" end
+                link: url = "#errors" content = "Errors" display = "block" font size = "11px" padding = "3px 0" end
+                link: url = "#limits" content = "Limits" display = "block" font size = "11px" padding = "3px 0" end
+                link: url = "#top" content = "Back to top ↑" display = "block" font size = "11px" padding = "3px 0" color = "#b23a1b" end
+            end
+            box:
+                span: content = "COLOPHON" font size = "9px" letter spacing = "0.14em" color = "#b23a1b" end
+                paragraph: content = "Set in Courier. Printed with the Salam layout compiler. No frameworks, no trackers, no gradients." font size = "10px" line height = 1.6 color = "#a89c86" end
+                span: content = "© 2026 ARGON CONTRIBUTORS / MIT" font size = "9px" letter spacing = "0.08em" color = "#6f6554" end
+            end
+        end
+    end
+
+    script: content = "document.querySelectorAll('[data-copy]').forEach(function(b){b.addEventListener('click',function(){var t=document.querySelector(b.getAttribute('data-copy'));if(!t)return;navigator.clipboard.writeText(t.innerText).then(function(){var o=b.textContent;b.textContent='COPIED';setTimeout(function(){b.textContent=o},1200)})})});" end
+end
